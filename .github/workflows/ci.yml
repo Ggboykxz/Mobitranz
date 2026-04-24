@@ -1,0 +1,188 @@
+# ============================================================
+# GitHub Actions CI/CD Pipeline
+# Fichier : .github/workflows/ci.yml
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mobitranz_test
+          POSTGRES_USER: mobitranz
+          POSTGRES_PASSWORD: mobitranz_test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-backend.txt
+          pip install -r requirements-services.txt
+          pip install pytest-cov pytest-asyncio
+      
+      - name: Run tests
+        run: |
+          pytest backend/tests/ -v --tb=short --cov=backend \
+            --cov-report=xml --cov-fail-under=70
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install ruff
+        run: pip install ruff mypy
+      
+      - name: Run ruff check
+        run: ruff check backend/ --output-format=github
+      
+      - name: Run ruff format check
+        run: ruff format backend/ --check --diff
+      
+      - name: Run mypy
+        run: mypy backend/ --ignore-missing-imports --pretty
+
+  build-admin:
+    name: Build Desktop Admin
+    runs-on: windows-latest
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -r requirements-admin.txt
+      
+      - name: Verify imports
+        run: |
+          python -c "import customtkinter; import tkinter; print('OK')"
+
+  build-mobile:
+    name: Build Mobile
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -r requirements-mobile.txt
+      
+      - name: Verify imports
+        run: python -c "import kivy; print('OK')"
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: mobitranz/api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run container healthcheck
+        run: |
+          docker run -d --name test-api -p 8000:8000 mobitranz/api:test
+          sleep 5
+          docker inspect --format='{{.State.Health.Status}}' test-api
+          docker stop test-api
+
+
+deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, lint, build-admin, build-mobile]
+    if: github.ref == 'refs/heads/master'
+    environment:
+      name: production
+      url: https://api.mobitranz.ga
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to server
+        run: |
+          echo "Deploy to production server"
+          # rsync -avz --delete build/ user@server:/var/www/mobitranz/

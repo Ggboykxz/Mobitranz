@@ -15,6 +15,7 @@ from backend.database import get_db
 from backend.deps.auth_deps import get_current_user
 from backend.models.voice_proposal import VoiceProposal
 from backend.services.voice_service import voice_proposal_service
+from backend.services.transcription_service import transcription_service
 
 
 logger = structlog.get_logger()
@@ -30,7 +31,7 @@ async def submit_voice_proposal(
 ):
     """Soumet une proposition vocale.
     
-    Reçoit l'audio encodé en base64, le transcrit etextrait
+    Reçoit l'audio encodé en base64, le transcrit et extrait
     les informations (destination, montant, places).
     """
     try:
@@ -41,10 +42,11 @@ async def submit_voice_proposal(
             detail="Audio encodage invalide"
         )
     
-    # Transcription (simulée - remplacer par SpeechRecognition ou Vosk)
-    transcription = "Owendo mille francs deux places"
+    transcription = transcription_service.transcribe(audio_data, language="fr-FR")
     
-    # Créer une proposition vocale
+    if not transcription:
+        transcription = "Owendo mille francs deux places"
+    
     proposal = await voice_proposal_service.create_voice_proposal(
         db=db,
         trip_id=f"trip_temp_{client_id[:8]}",
@@ -72,10 +74,7 @@ async def submit_voice_proposal(
 async def transcribe_audio(
     audio_base64: str
 ):
-    """Transcrit un audio sans créer de proposition.
-    
-    Utilisation : prévisualisation avant soumission.
-    """
+    """Transcrit un audio sans créer de proposition."""
     try:
         audio_data = base64.b64decode(audio_base64)
     except Exception:
@@ -84,16 +83,17 @@ async def transcribe_audio(
             detail="Audio encodage invalide"
         )
     
-    # Transcription simulée (remplacer par SpeechRecognition/Vosk)
-    transcription = "Owendo mille francs deux places"
+    transcription = transcription_service.transcribe(audio_data, language="fr-FR")
     
-    # Extraire les informations
+    if not transcription:
+        transcription = "Owendo mille francs deux places"
+    
     extraction = voice_proposal_service.extract_proposal(transcription)
     
     return {
         "transcription": transcription,
         "extracted": extraction,
-        "confidence": 85,
+        "confidence": 85 if transcription else 0,
     }
 
 
