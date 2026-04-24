@@ -5,7 +5,7 @@
 # ============================================================
 
 import re
-import unicoded
+import unicodedata
 from typing import Optional, Dict
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +38,13 @@ class VoiceProposalService:
         "nombakele": ["nombakélé", "nombakele"],
     }
     
+    FRENCH_AMOUNTS = {
+        "mille": 1000, "un-mille": 1000, "milles": 1000,
+        "deux-mille": 2000, "deux-milles": 2000,
+        "cinq-mille": 5000,
+        "dix-mille": 10000,
+    }
+
     NUMBER_WORDS = {
         "zéro": 0, "un": 1, "une": 1, "deux": 2, "trois": 3,
         "quatre": 4, "cinq": 5, "six": 6, "sept": 7,
@@ -55,9 +62,9 @@ class VoiceProposalService:
             str: Texte normalisé
         """
         text = text.lower()
-        text = unicoded.normalize("NFD", text)
+        text = unicodedata.normalize("NFD", text)
         text = "".join(
-            c for c in text if unicoded.category(c) != "Mn"
+            c for c in text if unicodedata.category(c) != "Mn"
         )
         return text
     
@@ -90,6 +97,11 @@ class VoiceProposalService:
             int: Montant en XAF ou None
         """
         text = self.normalize_text(text)
+        
+        for word, amount in self.FRENCH_AMOUNTS.items():
+            if word in text:
+                logger.info("Montant trouvé", amount=amount)
+                return amount
         
         patterns = [
             r"(\d+)\s*(?:mille|famille|francs?|xaf?|fcfa)",

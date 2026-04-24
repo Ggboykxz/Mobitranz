@@ -4,21 +4,18 @@
 # Description : JWT, OTP, biométrie, 2FA TOTP
 # ============================================================
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import secrets
 import hashlib
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 import pyotp
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.config import settings
 from backend.models.user import User, UserStatus
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
 class AuthService:
@@ -37,7 +34,9 @@ class AuthService:
         Returns:
             str: Hash bcrypt du mot de passe
         """
-        return pwd_context.hash(password)
+        password_bytes = password.encode("utf-8")[:72]
+        salt = bcrypt.gensalt(rounds=12)
+        return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Vérifie un mot de passe contre son hash.
@@ -49,7 +48,9 @@ class AuthService:
         Returns:
             bool: True si le mot de passe est correct
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        password_bytes = plain_password.encode("utf-8")[:72]
+        hashed_bytes = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     
     def create_access_token(
         self,
@@ -67,7 +68,7 @@ class AuthService:
         Returns:
             str: Token JWT encodé
         """
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
         
@@ -75,7 +76,7 @@ class AuthService:
             "sub": user_id,
             "role": role,
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "access",
         }
         
@@ -97,14 +98,14 @@ class AuthService:
         Returns:
             str: Token JWT de rafraîchissement
         """
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             days=settings.refresh_token_expire_days
         )
         
         payload = {
             "sub": user_id,
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "refresh",
             "nonce": secrets.token_hex(16),
         }

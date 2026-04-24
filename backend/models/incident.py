@@ -81,7 +81,7 @@ class Incident(Base):
     
     # Escalade
     escalated_to = Column(String(200), nullable=True)
-   escalated_at = Column(DateTime, nullable=True)
+    escalated_at = Column(DateTime, nullable=True)
     escalation_reason = Column(String(500), nullable=True)
     
     # Résolution
