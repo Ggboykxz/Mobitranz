@@ -20,14 +20,21 @@ opencv-python==4.10.0.84
 reportlab==4.2.5
 structlog==24.4.0
 slowapi==0.1.9
+python-multipart==0.0.20
 
+# GUI Windows 11 Fluent Design
+customtkinter==5.2.2
+Pillow==11.0.0
+darkdetect==0.8.0
+pywinstyles==1.9
+matplotlib==3.9.3
+
+# Kivy Mobile
 kivy==2.3.0
 kivymd==1.2.0
 plyer==2.1.0
 
-ttkbootstrap==1.10.1
-matplotlib==3.9.3
-
+# Dashboard Ministère
 dash==2.18.2
 dash-bootstrap-components==1.6.0
 plotly==5.24.1
