@@ -1,0 +1,77 @@
+# ============================================================
+# Point d'entrée FastAPI MobiTranz
+# Fichier : backend/main.py
+# Description : Application FastAPI principale
+# ============================================================
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import structlog
+from contextlib import asynccontextmanager
+
+from backend.config import settings
+from backend.database import init_db, engine
+from backend.redis_client import redis_client
+
+
+logger = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gestionnaire du cycle de vie de l'application.
+    
+    Démarrage : initialise la base de données et Redis.
+    Arrêt : ferme les connexions.
+    """
+    logger.info("Démarrage de MobiTranz", version=settings.app_version)
+    
+    logger.info("Initialisation de la base de données")
+    await init_db()
+    
+    logger.info("Connexion à Redis")
+    await redis_client.connect()
+    
+    yield
+    
+    logger.info("Fermeture des connexions")
+    await redis_client.disconnect()
+    await engine.dispose()
+    
+    logger.info("MobiTranz arrêté")
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    description="Plateforme de paiement numérique pour le transport gabonais",
+    lifespan=lifespan,
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/")
+async def root():
+    """Route racine."""
+    return {
+        "name": settings.app_name,
+        "version": settings.app_version,
+        "status": "online"
+    }
+
+
+@app.get("/health")
+async def health():
+    """Vérification de l'état de santé."""
+    return {"status": "healthy"}
+
+
+logger.info("Application MobiTranz初始isée")
