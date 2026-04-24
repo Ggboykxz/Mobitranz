@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
@@ -145,7 +145,7 @@ async def validate_driver(
     
     driver.status = DriverStatus.VALIDATED
     driver.kyc_verified = True
-    driver.kyc_verified_at = datetime.utcnow()
+    driver.kyc_verified_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -202,7 +202,7 @@ async def update_location(
     
     driver.current_lat = lat
     driver.current_lon = lon
-    driver.last_location_update = datetime.utcnow()
+    driver.last_location_update = datetime.now(timezone.utc)
     
     await db.commit()
     

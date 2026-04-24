@@ -19,6 +19,11 @@ from mobile.screens.client.profile_screen import ProfileScreen
 from mobile.screens.driver.driver_home_screen import DriverHomeScreen
 from mobile.screens.driver.trip_active_driver import TripActiveDriverScreen
 from mobile.screens.driver.earnings_screen import EarningsScreen
+from mobile.screens.driver.wallet_screen import WalletScreen
+from mobile.screens.client.chat_screen import ChatScreen
+from mobile.screens.client.rating_screen import RatingScreen
+from mobile.screens.client.notifications_screen import NotificationsScreen
+from mobile.screens.client.sos_history_screen import SOSHistoryScreen
 
 
 class MobiTranzApp(App):
@@ -39,11 +44,16 @@ class MobiTranzApp(App):
         sm.add_widget(TripActiveScreen(name="trip_active"))
         sm.add_widget(TripHistoryScreen(name="trip_history"))
         sm.add_widget(ProfileScreen(name="profile"))
+        sm.add_widget(ChatScreen(name="chat"))
+        sm.add_widget(RatingScreen(name="rating"))
+        sm.add_widget(NotificationsScreen(name="notifications"))
+        sm.add_widget(SOSHistoryScreen(name="sos_history"))
         
         # Driver screens
         sm.add_widget(DriverHomeScreen(name="driver_home"))
         sm.add_widget(TripActiveDriverScreen(name="trip_active_driver"))
         sm.add_widget(EarningsScreen(name="earnings"))
+        sm.add_widget(WalletScreen(name="wallet"))
         
         return sm
 

@@ -7,10 +7,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime, timezone
 import base64
 import structlog
 
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
 from backend.models.voice_proposal import VoiceProposal
 from backend.services.voice_service import voice_proposal_service
 
@@ -107,7 +109,8 @@ async def get_known_zones():
 @router.post("/validate")
 async def validate_proposal(
     proposal_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_user)
 ):
     """Valide manuellement une proposition."""
     result = await db.execute(
@@ -122,7 +125,7 @@ async def validate_proposal(
         )
     
     proposal.is_validated = "true"
-    proposal.validated_at = datetime.utcnow()
+    proposal.validated_at = datetime.now(timezone.utc)
     proposal.validation_source = "manual"
     
     await db.commit()
@@ -130,6 +133,3 @@ async def validate_proposal(
     logger.info("Proposition validée", proposal_id=proposal_id)
     
     return {"status": "validated", "proposal_id": proposal_id}
-
-
-from datetime import datetime

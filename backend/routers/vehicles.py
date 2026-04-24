@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 import structlog
 
 from backend.database import get_db
@@ -120,7 +120,7 @@ async def generate_vehicle_qr(
     # Mettre à jour la expire
     vehicle.qr_code = qr_image
     from datetime import timedelta
-    vehicle.qr_code_expires_at = datetime.utcnow() + timedelta(minutes=5)
+    vehicle.qr_code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
     
     await db.commit()
     
@@ -207,7 +207,7 @@ async def update_location(
     
     vehicle.current_lat = str(lat)
     vehicle.current_lon = str(lon)
-    vehicle.last_update = datetime.utcnow()
+    vehicle.last_update = datetime.now(timezone.utc)
     
     await db.commit()
     

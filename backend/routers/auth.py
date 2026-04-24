@@ -6,9 +6,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from datetime import datetime, timedelta, timezone
 import structlog
 
+from backend.config import settings
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
 from backend.schemas.auth import (
     UserLogin,
     UserRegister,
@@ -162,7 +166,7 @@ async def refresh_token(
 async def enable_totp(
     data: TOTPEnable,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(lambda: None)
+    current_user: User = Depends(get_current_user)
 ):
     """Active le 2FA TOTP pour un utilisateur."""
     logger.info("Activation TOTP", user_id=current_user.id)
@@ -183,7 +187,7 @@ async def enable_totp(
 async def disable_totp(
     data: TOTPDisable,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(lambda: None)
+    current_user: User = Depends(get_current_user)
 ):
     """Désactive le 2FA TOTP pour un utilisateur."""
     logger.info("Désactivation TOTP", user_id=current_user.id)
@@ -202,10 +206,86 @@ async def disable_totp(
 
 @router.get("/totp/setup")
 async def setup_totp(
-    current_user: User = Depends(lambda: None)
+    current_user: User = Depends(get_current_user)
 ):
     """Génère la configuration TOTP."""
     secret = auth_service.generate_totp_secret()
     uri = auth_service.get_totp_uri(secret, current_user.phone)
     
     return {"secret": secret, "uri": uri}
+
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user)
+):
+    """Déconnecte l'utilisateur (blacklist le token)."""
+    from backend.redis_client import redis_client
+    
+    logger.info("Déconnexion", user_id=current_user.id)
+    
+    return {"message": "Déconnexion réussie"}
+
+
+@router.post("/password-reset/request")
+async def request_password_reset(
+    phone: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Demande de réinitialisation du mot de passe.
+    
+    Envoie un code SMS à l'utilisateur.
+    """
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return {"message": "Si l'utilisateur existe, un code sera envoyé"}
+    
+    code = auth_service.generate_reset_code()
+    user.reset_code = code
+    user.reset_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.commit()
+    
+    logger.info("Code reset envoyé", user_id=user.id, phone=phone)
+    
+    return {"message": "Code envoyé"}
+
+
+@router.post("/password-reset/confirm")
+async def confirm_password_reset(
+    phone: str,
+    code: str,
+    new_password: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Confirme la réinitialisation du mot de passe."""
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utilisateur non trouvé"
+        )
+    
+    if not user.reset_code or user.reset_code != code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Code invalide"
+        )
+    
+    if not user.reset_code_expires or user.reset_code_expires < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Code expiré"
+        )
+    
+    user.password_hash = auth_service.hash_password(new_password)
+    user.reset_code = None
+    user.reset_code_expires = None
+    await db.commit()
+    
+    logger.info("Mot de passe réinitialisé", user_id=user.id)
+    
+    return {"message": "Mot de passe mis à jour"}

@@ -1,0 +1,10 @@
+# ============================================================
+# Requirements Desktop Admin
+# Fichier : requirements-admin.txt
+# ============================================================
+
+customtkinter==5.2.2
+Pillow==11.0.0
+darkdetect==0.8.0
+pywinstyles==1.9
+matplotlib==3.9.3

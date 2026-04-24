@@ -100,7 +100,7 @@ class VoiceScreen(Screen):
         """Bascule l'enregistrement."""
         self._is_recording = not self._is_recording
         
-        if self._is_record(self):
+        if self._is_recording:
             self.record_btn.text = "⏹ Arrêter"
             self.record_btn.background_color = Colors.GREY_500
             self.transcription_label.text = "🎤 Écoute en cours..."

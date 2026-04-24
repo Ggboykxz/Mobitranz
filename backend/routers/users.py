@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 import structlog
 
 from backend.database import get_db
@@ -141,7 +141,7 @@ async def update_user(
     if last_name:
         user.last_name = last_name
     
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -168,7 +168,7 @@ async def suspend_user(
         )
     
     user.status = UserStatus.SUSPENDED
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -195,7 +195,7 @@ async def activate_user(
         )
     
     user.status = UserStatus.ACTIVE
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     
@@ -222,7 +222,7 @@ async def delete_user(
         )
     
     user.status = UserStatus.DELETED
-    user.updated_at = datetime.utcnow()
+    user.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     

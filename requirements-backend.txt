@@ -1,0 +1,31 @@
+# ============================================================
+# Requirements Backend API
+# Fichier : requirements-backend.txt
+# ============================================================
+
+fastapi==0.115.0
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+pydantic[email]==2.10.0
+pydantic-settings==2.7.0
+redis[hiredis]==5.2.0
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+pyotp==2.9.0
+qrcode[pil]==8.0
+cryptography==44.0.0
+httpx==0.28.0
+structlog==24.4.0
+slowapi==0.1.9
+python-multipart==0.0.20
+python-dotenv==1.0.0
+email-validator==2.1.0
+
+# Database
+alembic==1.14.0
+psycopg2-binary==2.9.10
+
+# Testing
+pytest==8.3.5
+pytest-asyncio==0.23.0
+aiosqlite==0.20.0

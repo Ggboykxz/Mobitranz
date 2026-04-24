@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 import structlog
 
 from backend.database import get_db
@@ -129,7 +129,7 @@ async def escalate_incident(
     
     incident.status = IncidentStatus.ESCALATED
     incident.escalated_to = escalate_to
-    incident.escalated_at = datetime.utcnow()
+    incident.escalated_at = datetime.now(timezone.utc)
     incident.escalation_reason = reason
     
     await db.commit()
@@ -163,7 +163,7 @@ async def resolve_incident(
         )
     
     incident.status = IncidentStatus.RESOLVED
-    incident.resolved_at = datetime.utcnow()
+    incident.resolved_at = datetime.now(timezone.utc)
     incident.resolution = resolution
     incident.resolved_by = resolved_by
     

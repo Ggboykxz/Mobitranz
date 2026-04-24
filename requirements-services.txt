@@ -1,0 +1,12 @@
+# ============================================================
+# Requirements Services (Audio/Video ML)
+# Fichier : requirements-services.txt
+# ============================================================
+
+SpeechRecognition==3.11.0
+librosa==0.10.2
+numpy==1.26.4
+scipy==1.17.1
+opencv-python-headless==4.10.0.84
+geoalchemy2==0.15.2
+shapely==2.0.6

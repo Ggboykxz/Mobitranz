@@ -9,7 +9,7 @@ import hmac
 import hashlib
 import base64
 import io
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import structlog
 
@@ -90,7 +90,7 @@ class QRService:
         Returns:
             str: QR Code encodé en base64 (image PNG)
         """
-        timestamp = int(datetime.utcnow().timestamp())
+        timestamp = int(datetime.now(timezone.utc).timestamp())
         signature = self.generate_qr_signature(vehicle_id, trip_id, timestamp)
         
         # Données encodées dans le QR Code
@@ -143,7 +143,7 @@ class QRService:
             bool: True si QR Code valide et first usage
         """
         # Vérification de l'expiration
-        current_time = int(datetime.utcnow().timestamp())
+        current_time = int(datetime.now(timezone.utc).timestamp())
         if current_time - timestamp > self.QR_EXPIRY_SECONDS:
             logger.warning("QR Code expiré", trip_id=trip_id)
             return False

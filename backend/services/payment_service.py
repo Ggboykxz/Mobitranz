@@ -7,7 +7,7 @@
 from typing import Optional
 import httpx
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
@@ -223,7 +223,7 @@ class PaymentService:
         payment.status = PaymentStatus.COMPLETED
         payment.external_transaction_id = transaction_id
         payment.provider_reference = provider_reference
-        payment.completed_at = datetime.utcnow()
+        payment.completed_at = datetime.now(timezone.utc)
         
         await db.commit()
         
@@ -248,7 +248,7 @@ class PaymentService:
         """
         payment.status = PaymentStatus.FAILED
         payment.failure_reason = reason
-        payment.failed_at = datetime.utcnow()
+        payment.failed_at = datetime.now(timezone.utc)
         
         await db.commit()
         

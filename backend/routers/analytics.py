@@ -7,10 +7,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_admin, get_current_ministry
 from backend.models.trip import Trip, TripStatus
 from backend.models.payment import Payment, PaymentStatus
 from backend.models.driver import Driver
@@ -23,11 +24,12 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/kpis")
 async def get_kpis(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Retourne les KPIs temps réel."""
-    today = datetime.utcnow().date()
-    today_start = datetime.combine(today, datetime.min.time())
+    today = datetime.now(timezone.utc).date()
+    today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
     
     # Trajets aujourd'hui
     trips_today = await db.execute(
@@ -77,11 +79,11 @@ async def get_kpis(
 @router.get("/trips/by-day")
 async def get_trips_by_day(
     days: int = 7,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Retourne les trajets par jour sur N jours."""
-    from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     result = await db.execute(
         select(Trip).where(Trip.created_at >= start_date)
@@ -100,11 +102,11 @@ async def get_trips_by_day(
 @router.get("/revenue/by-day")
 async def get_revenue_by_day(
     days: int = 7,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Retourne les revenus par jour."""
-    from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     results = await db.execute(
         select(Payment).where(
@@ -124,7 +126,8 @@ async def get_revenue_by_day(
 
 @router.get("/payment-methods")
 async def get_payment_methods_breakdown(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Répartition par méthode de paiement."""
     result = await db.execute(
@@ -138,7 +141,8 @@ async def get_payment_methods_breakdown(
 @router.get("/drivers/top")
 async def get_top_drivers(
     limit: int = 10,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Top conducteurs par revenus."""
     result = await db.execute(
@@ -157,11 +161,11 @@ async def get_top_drivers(
 @router.get("/incidents/by-type")
 async def get_incidents_by_type(
     days: int = 30,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Répartition des incidents par type."""
-    from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     result = await db.execute(
         select(Incident.incident_type, func.count(Incident.id)).where(
@@ -177,7 +181,8 @@ async def get_incidents_by_type(
 async def export_trips_csv(
     start_date: str,
     end_date: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_admin)
 ):
     """Exporte les trajets en CSV (pour rapports ministère).
     
@@ -230,16 +235,14 @@ async def export_trips_csv(
 async def generate_ministry_report(
     year: int = None,
     month: int = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: object = Depends(get_current_ministry)
 ):
-    """Génère un rapport pour le Ministère des Transports.
-    
-    Inclut : statistiques globales, incidents, conformité.
-    """
+    """Génère un rapport pour le Ministère des Transports."""
     if year is None:
-        year = datetime.utcnow().year
+        year = datetime.now(timezone.utc).year
     if month is None:
-        month = datetime.utcnow().month
+        month = datetime.now(timezone.utc).month
     
     from datetime import timedelta
     start_date = datetime(year, month, 1)
@@ -282,5 +285,5 @@ async def generate_ministry_report(
         "total_trips": total_trips,
         "total_revenue_xaf": total_revenue,
         "total_incidents": total_incidents,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }

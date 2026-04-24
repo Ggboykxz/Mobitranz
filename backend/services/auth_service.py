@@ -244,7 +244,7 @@ class AuthService:
         Returns:
             bool: True si le compte est verrouillé
         """
-        if user.locked_until and user.locked_until > datetime.utcnow():
+        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
             return True
         return False
     
@@ -262,7 +262,7 @@ class AuthService:
         user.failed_login_attempts += 1
         
         if user.failed_login_attempts >= 3:
-            user.locked_until = datetime.utcnow() + timedelta(minutes=30)
+            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=30)
         
         await db.commit()
     
@@ -279,7 +279,7 @@ class AuthService:
         """
         user.failed_login_attempts = 0
         user.locked_until = None
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         await db.commit()
 
 

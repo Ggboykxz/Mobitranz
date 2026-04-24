@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
@@ -55,7 +55,7 @@ async def create_trip(
         amount=data.amount,
         seats_count=data.seats_count,
         status=TripStatus.PROPOSING,
-        proposed_at=datetime.utcnow(),
+        proposed_at=datetime.now(timezone.utc),
     )
     
     db.add(trip)
@@ -107,7 +107,7 @@ async def validate_horn(
     
     if data.pattern == "accept":
         trip.status = TripStatus.HORN_PENDING
-        trip.horn_at = datetime.utcnow()
+        trip.horn_at = datetime.now(timezone.utc)
         
         # Activer la proposition dans Redis (fenêtre 30s)
         await redis_client.set_proposal_active(
@@ -151,7 +151,7 @@ async def start_trip(
         )
     
     trip.status = TripStatus.ACTIVE
-    trip.started_at = datetime.utcnow()
+    trip.started_at = datetime.now(timezone.utc)
     await db.commit()
     
     logger.info("Trajet démarré", trip_id=trip_id)
@@ -175,7 +175,7 @@ async def complete_trip(
         )
     
     trip.status = TripStatus.COMPLETED
-    trip.completed_at = datetime.utcnow()
+    trip.completed_at = datetime.now(timezone.utc)
     await db.commit()
     
     logger.info("Trajet terminé", trip_id=trip_id)
@@ -201,3 +201,112 @@ async def get_active_trip(
         return None
     
     return trip
+
+
+@router.post("/{trip_id}/join")
+async def join_trip(
+    trip_id: str,
+    client_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Permet à un client de rejoindre un trajet."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trajet non trouvé"
+        )
+    
+    if trip.status not in [TripStatus.PROPOSING, TripStatus.HORN_PENDING]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trajet non joignable"
+        )
+    
+    if client_id in trip.client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Déjà dans ce trajet"
+        )
+    
+    if len(trip.client_ids) >= trip.seats_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trajet complet"
+        )
+    
+    trip.client_ids = trip.client_ids + [client_id]
+    await db.commit()
+    
+    logger.info("Client a rejoint", trip_id=trip_id, client_id=client_id)
+    
+    return {"status": "joined", "client_count": len(trip.client_ids)}
+
+
+@router.delete("/{trip_id}/clients/{client_id}")
+async def leave_trip(
+    trip_id: str,
+    client_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Permet à un client de quitter un trajet."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trajet non trouvé"
+        )
+    
+    if trip.status == TripStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trajet déjà commencé"
+        )
+    
+    if client_id not in trip.client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pas dans ce trajet"
+        )
+    
+    trip.client_ids = [c for c in trip.client_ids if c != client_id]
+    await db.commit()
+    
+    logger.info("Client a quitté", trip_id=trip_id, client_id=client_id)
+    
+    return {"status": "left", "client_count": len(trip.client_ids)}
+
+
+@router.post("/{trip_id}/cancel")
+async def cancel_trip(
+    trip_id: str,
+    reason: str = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Annule un trajet."""
+    result = await db.execute(select(Trip).where(Trip.id == trip_id))
+    trip = result.scalar_one_or_none()
+    
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trajet non trouvé"
+        )
+    
+    if trip.status == TripStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trajet déjà terminé"
+        )
+    
+    trip.status = TripStatus.CANCELLED
+    trip.completed_at = datetime.now(timezone.utc)
+    await db.commit()
+    
+    logger.info("Trajet annulé", trip_id=trip_id, reason=reason)
+    
+    return {"status": "cancelled"}

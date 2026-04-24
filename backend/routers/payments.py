@@ -7,7 +7,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timezone
 import structlog
 
 from backend.database import get_db
@@ -137,7 +137,7 @@ async def payment_webhook(
         )
         trip = trip_result.scalar_one_or_none()
         if trip:
-            trip.payment_at = datetime.utcnow()
+            trip.payment_at = datetime.now(timezone.utc)
         
         logger.info("Paiement confirmé via webhook", payment_id=payment.id)
         
@@ -198,7 +198,7 @@ async def confirm_payment(
         )
         trip = trip_result.scalar_one_or_none()
         if trip:
-            trip.payment_at = datetime.utcnow()
+            trip.payment_at = datetime.now(timezone.utc)
         
         await db.commit()
         logger.info("Paiement confirmé", payment_id=payment.id)
