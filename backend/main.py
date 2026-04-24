@@ -13,17 +13,16 @@ from backend.config import settings
 from backend.database import init_db, engine
 from backend.redis_client import redis_client
 
+# Import routers
+from backend.routers import auth, trips, payments, drivers, vehicles, voice, incidents, analytics, users
+
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gestionnaire du cycle de vie de l'application.
-    
-    Démarrage : initialise la base de données et Redis.
-    Arrêt : ferme les connexions.
-    """
+    """Gestionnaire du cycle de vie de l'application."""
     logger.info("Démarrage de MobiTranz", version=settings.app_version)
     
     logger.info("Initialisation de la base de données")
@@ -58,6 +57,18 @@ app.add_middleware(
 )
 
 
+# Include routers
+app.include_router(auth.router, prefix="/auth")
+app.include_router(trips.router, prefix="/trips")
+app.include_router(payments.router, prefix="/payments")
+app.include_router(drivers.router, prefix="/drivers")
+app.include_router(vehicles.router, prefix="/vehicles")
+app.include_router(voice.router, prefix="/voice")
+app.include_router(incidents.router, prefix="/incidents")
+app.include_router(analytics.router, prefix="/analytics")
+app.include_router(users.router, prefix="/users")
+
+
 @app.get("/")
 async def root():
     """Route racine."""
@@ -74,4 +85,4 @@ async def health():
     return {"status": "healthy"}
 
 
-logger.info("Application MobiTranz初始isée")
+logger.info("Application MobiTranz initialisée")
