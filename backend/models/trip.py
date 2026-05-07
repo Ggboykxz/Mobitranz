@@ -4,7 +4,7 @@
 # Description : Table des trajets (trajet complet)
 # ============================================================
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum, ARRAY
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -50,8 +50,9 @@ class Trip(Base):
         index=True
     )
     client_ids = Column(
-        ARRAY(String),
-        nullable=False
+        JSON,
+        nullable=False,
+        default=list
     )
     
     # Géolocalisation (PostGIS simplifié en string)

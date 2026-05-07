@@ -24,6 +24,8 @@ from mobile.screens.client.chat_screen import ChatScreen
 from mobile.screens.client.rating_screen import RatingScreen
 from mobile.screens.client.notifications_screen import NotificationsScreen
 from mobile.screens.client.sos_history_screen import SOSHistoryScreen
+from mobile.screens.client.settings_screen import SettingsScreen
+from mobile.screens.client.map_screen import MapScreen
 
 
 class MobiTranzApp(App):
@@ -48,6 +50,8 @@ class MobiTranzApp(App):
         sm.add_widget(RatingScreen(name="rating"))
         sm.add_widget(NotificationsScreen(name="notifications"))
         sm.add_widget(SOSHistoryScreen(name="sos_history"))
+        sm.add_widget(SettingsScreen(name="settings"))
+        sm.add_widget(MapScreen(name="map"))
         
         # Driver screens
         sm.add_widget(DriverHomeScreen(name="driver_home"))

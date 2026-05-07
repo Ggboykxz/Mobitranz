@@ -1,0 +1,25 @@
+# ============================================================
+# Requirements pour Windows
+# Fichier : requirements-windows.txt
+# ============================================================
+
+# UI Framework
+customtkinter>=5.2.0
+darkdetect>=0.8.0
+
+# Math & Charts
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+pandas>=2.0.0
+
+# PDF Generation
+reportlab>=4.0.0
+fpdf>=1.7.2
+
+# Image Processing
+Pillow>=10.0.0
+
+# Pour build
+pyinstaller>=6.0.0
+cx_Freeze>=6.15.0

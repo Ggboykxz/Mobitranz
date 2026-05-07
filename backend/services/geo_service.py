@@ -107,7 +107,7 @@ class GeoService:
         
         return distance <= radius_km
     
-    def detect_zone(
+    async def detect_zone(
         self,
         db: AsyncSession,
         latitude: float,
