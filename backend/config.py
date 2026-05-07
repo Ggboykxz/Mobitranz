@@ -130,6 +130,48 @@ class Settings(BaseSettings):
     
     # Configuration Fuseau Horaire
     tz: str = Field(default="Africa/Libreville", alias="TZ")
+    
+    # Configuration Ministères (Webhooks sortants)
+    ministry_transport_webhook: Optional[str] = Field(
+        default=None,
+        alias="MINISTRY_TRANSPORT_WEBHOOK"
+    )
+    ministry_interior_webhook: Optional[str] = Field(
+        default=None,
+        alias="MINISTRY_INTERIOR_WEBHOOK"
+    )
+    ministry_api_key: Optional[str] = Field(
+        default=None,
+        alias="MINISTRY_API_KEY"
+    )
+    
+    # Configuration MinIO (Stockage médias)
+    minio_endpoint: Optional[str] = Field(
+        default=None,
+        alias="MINIO_ENDPOINT"
+    )
+    minio_access_key: Optional[str] = Field(
+        default=None,
+        alias="MINIO_ACCESS_KEY"
+    )
+    minio_secret_key: Optional[str] = Field(
+        default=None,
+        alias="MINIO_SECRET_KEY"
+    )
+    minio_bucket_videos: str = Field(
+        default="trip-recordings",
+        alias="MINIO_BUCKET_VIDEOS"
+    )
+    minio_bucket_kyc: str = Field(
+        default="kyc-documents",
+        alias="MINIO_BUCKET_KYC"
+    )
+    
+    # Configuration AES Master Key (32 bytes hex)
+    aes_master_key: Optional[str] = Field(
+        default=None,
+        alias="AES_MASTER_KEY"
+    )
 
 
 # Instance globale des paramètres
