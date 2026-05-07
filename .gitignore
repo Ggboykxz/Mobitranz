@@ -58,3 +58,27 @@ htmlcov/
 
 # Distribution
 *.whl
+# Build artifacts
+*.pyc
+__pycache__/
+*.db
+.env
+
+# Desktop admin
+desktop_admin/__pycache__/
+build/
+dist/
+
+# Mobile
+mobile/__pycache__/
+mobile/bin/
+mobile/.buildozer/
+
+# Vehicle
+vehicle_device/__pycache__/
+
+# Backend
+backend/__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/

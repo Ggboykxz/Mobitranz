@@ -4,7 +4,7 @@
 # Description : Configuration de l'application mobile
 # ============================================================
 
-API_BASE_URL = "https://api.mobitranz.ga"
+API_BASE_URL = "http://localhost:8000"
 API_TIMEOUT = 30
 
 REDIS_HOST = "localhost"

@@ -1,12 +1,11 @@
 # ============================================================
 # Module Vue d'ensemble — Dashboard Admin MobiTranz
 # Fichier : desktop_admin/windows/modules/overview_module.py
-# Description : KPIs, graphiques et statistiques en temps réel
+# Description : KPIs, graphiques et statistiques via API
 # ============================================================
 
 import customtkinter as ctk
 from datetime import datetime, timedelta
-import random
 import threading
 from desktop_admin.theme.components import KPICard, FluentCard, FluentButton
 
@@ -14,8 +13,7 @@ from desktop_admin.theme.components import KPICard, FluentCard, FluentButton
 class OverviewModule(ctk.CTkFrame):
     """Module Vue d'ensemble avec KPIs et graphiques.
     
-    Affiche les métriques clés du système avec tendances,
-    graphiques de activité, et alertes en temps réel.
+    Affiche les métriques clés du système via API backend.
     """
     
     def __init__(self, master, dashboard=None, user_data=None, **kwargs):
@@ -24,6 +22,9 @@ class OverviewModule(ctk.CTkFrame):
         
         self._dashboard = dashboard
         self._user_data = user_data or {}
+        self._api_client = dashboard.api_client if dashboard else None
+        
+        self._kpi_data = {}
         
         self._build_header()
         self._build_kpis()
@@ -32,6 +33,61 @@ class OverviewModule(ctk.CTkFrame):
         self._build_system_status()
         
         self._start_auto_refresh()
+        self._load_data()
+    
+    def _load_data(self):
+        """Charge les données depuis l'API."""
+        if not self._api_client:
+            self._show_demo_data()
+            return
+        
+        try:
+            kpis = self._api_client.get_kpis()
+            self._update_kpis(kpis)
+        except Exception as e:
+            print(f"Erreur chargement KPIs: {e}")
+            self._show_demo_data()
+    
+    def _show_demo_data(self):
+        """Affiche les données de démonstration si API non disponible."""
+        demo_kpis = {
+            "trips_today": 127,
+            "revenue_today": 1250000,
+            "active_drivers": 45,
+            "active_vehicles": 52,
+            "incidents_open": 3,
+            "users_total": 1250,
+            "trips_trend": 12,
+            "revenue_trend": 8,
+        }
+        self._update_kpis(demo_kpis)
+    
+    def _update_kpis(self, data):
+        """Met à jour les cartes KPIs."""
+        self._kpi_data = data
+        
+        trips = data.get("trips_today", 0)
+        self._trips_kpi.set_value(str(trips))
+        
+        revenue = data.get("revenue_today", 0)
+        self._revenue_kpi.set_value(f"{revenue // 1000}k XAF")
+        
+        drivers = data.get("active_drivers", 0)
+        self._drivers_kpi.set_value(str(drivers))
+        
+        vehicles = data.get("active_vehicles", 0)
+        self._vehicles_kpi.set_value(str(vehicles))
+        
+        incidents = data.get("incidents_open", 0)
+        self._incidents_kpi.set_value(str(incidents))
+        
+        users = data.get("users_total", 0)
+        self._users_kpi.set_value(str(users))
+        
+        if "trips_trend" in data:
+            self._trips_kpi.set_trend(data["trips_trend"])
+        if "revenue_trend" in data:
+            self._revenue_kpi.set_trend(data["revenue_trend"])
     
     def _build_header(self):
         """En-tête avec titre et actions."""
@@ -74,346 +130,215 @@ class OverviewModule(ctk.CTkFrame):
         self._trips_kpi = KPICard(
             kpi_frame,
             title="Trajets aujourd'hui",
-            value="127",
+            value="0",
             unit="trajets",
-            trend=12,
+            trend=0,
             icon="🗺️",
-            accent_color="#1A3A6C"
+            width=200
         )
         self._trips_kpi.pack(side="left", padx=(0, 16))
         
         self._revenue_kpi = KPICard(
             kpi_frame,
-            title="Revenus du jour",
-            value="1.2M",
-            unit="FCFA",
-            trend=8,
+            title="Revenus aujourd'hui",
+            value="0 XAF",
+            unit="XAF",
+            trend=0,
             icon="💰",
-            accent_color="#009E60"
+            width=200
         )
         self._revenue_kpi.pack(side="left", padx=(0, 16))
         
         self._drivers_kpi = KPICard(
             kpi_frame,
-            title="Conducteurs actifs",
-            value="45",
+            title="Chauffeurs actifs",
+            value="0",
             unit="en ligne",
-            trend=5,
+            trend=0,
             icon="🚗",
-            accent_color="#FCD116"
+            width=200
         )
         self._drivers_kpi.pack(side="left", padx=(0, 16))
+        
+        self._vehicles_kpi = KPICard(
+            kpi_frame,
+            title="Véhicules actifs",
+            value="0",
+            unit="véhicules",
+            trend=0,
+            icon="🚕",
+            width=200
+        )
+        self._vehicles_kpi.pack(side="left", padx=(0, 16))
         
         self._incidents_kpi = KPICard(
             kpi_frame,
             title="Incidents ouverts",
-            value="3",
-            unit="alertes",
-            trend=-25,
+            value="0",
+            unit="non résolus",
+            trend=0,
             icon="🚨",
-            accent_color="#E53E3E"
+            width=200
         )
         self._incidents_kpi.pack(side="left", padx=(0, 16))
         
-        self._clients_kpi = KPICard(
+        self._users_kpi = KPICard(
             kpi_frame,
-            title="Clients actifs",
-            value="2,847",
-            unit="utilisateurs",
-            trend=15,
+            title="Total utilisateurs",
+            value="0",
+            unit="inscrits",
+            trend=0,
             icon="👥",
-            accent_color="#7C3AED"
+            width=200
         )
-        self._clients_kpi.pack(side="left")
+        self._users_kpi.pack(side="left")
     
     def _build_charts(self):
-        """Graphiques de l'activité."""
+        """Graphiques de revenus et trajets."""
         charts_frame = ctk.CTkFrame(self, fg_color="transparent")
         charts_frame.pack(fill="both", expand=True, pady=(0, 24))
-        charts_frame.grid_columnconfigure(0, weight=1)
-        charts_frame.grid_columnconfigure(1, weight=1)
         
-        self._build_trips_chart(charts_frame)
-        self._build_revenue_chart(charts_frame)
-    
-    def _build_trips_chart(self, parent):
-        """Graphique des trajets par heure."""
-        card = FluentCard(parent, title="Trajets par heure", padding=16)
-        card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        revenue_card = FluentCard(charts_frame)
+        revenue_card.pack(side="left", fill="both", expand=True, padx=(0, 12))
         
-        chart_frame = ctk.CTkFrame(card, fg_color="transparent")
-        chart_frame.pack(fill="both", expand=True, pady=(16, 0))
+        ctk.CTkLabel(
+            revenue_card,
+            text="Revenus (30 derniers jours)",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=("#1A1A1A", "white"),
+        ).pack(anchor="w", pady=(0, 15))
         
-        hours = ["6h", "8h", "10h", "12h", "14h", "16h", "18h", "20h", "22h"]
-        values = [12, 45, 28, 35, 22, 48, 65, 32, 15]
+        self._revenue_chart_label = ctk.CTkLabel(
+            revenue_card,
+            text="📊 Graphique des revenus",
+            font=ctk.CTkFont(size=14),
+            text_color=("#6B7280", "#9CA3AF"),
+        )
+        self._revenue_chart_label.pack(expand=True)
         
-        max_val = max(values) if values else 1
+        trips_card = FluentCard(charts_frame)
+        trips_card.pack(side="left", fill="both", expand=True, padx=(12, 0))
         
-        bar_frame = ctk.CTkFrame(chart_frame, fg_color="transparent")
-        bar_frame.pack(fill="both", expand=True)
+        ctk.CTkLabel(
+            trips_card,
+            text="Trajets (30 derniers jours)",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=("#1A1A1A", "white"),
+        ).pack(anchor="w", pady=(0, 15))
         
-        for hour, value in zip(hours, values):
-            bar_container = ctk.CTkFrame(bar_frame, fg_color="transparent")
-            bar_container.pack(side="left", fill="both", expand=True)
-            
-            bar_height = (value / max_val) * 150
-            
-            bar = ctk.CTkFrame(
-                bar_container,
-                fg_color="#1A3A6C",
-                corner_radius=4,
-                height=max(bar_height, 4)
-            )
-            bar.pack(side="bottom", pady=(0, 4))
-            
-            ctk.CTkLabel(
-                bar_container,
-                text=str(value),
-                font=ctk.CTkFont(size=10, weight="bold"),
-                text_color="#1A3A6C"
-            ).pack(side="bottom")
-            
-            ctk.CTkLabel(
-                bar_container,
-                text=hour,
-                font=ctk.CTkFont(size=9),
-                text_color="#6B7280"
-            ).pack(side="bottom", pady=(4, 0))
-    
-    def _build_revenue_chart(self, parent):
-        """Graphique des revenus par jour."""
-        card = FluentCard(parent, title="Revenus (7 derniers jours)", padding=16)
-        card.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
-        
-        chart_frame = ctk.CTkFrame(card, fg_color="transparent")
-        chart_frame.pack(fill="both", expand=True, pady=(16, 0))
-        
-        days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
-        values = [850000, 920000, 780000, 1100000, 1250000, 980000, 650000]
-        
-        max_val = max(values) if values else 1
-        
-        bar_frame = ctk.CTkFrame(chart_frame, fg_color="transparent")
-        bar_frame.pack(fill="both", expand=True)
-        
-        for day, value in zip(days, values):
-            bar_container = ctk.CTkFrame(bar_frame, fg_color="transparent")
-            bar_container.pack(side="left", fill="both", expand=True)
-            
-            bar_height = (value / max_val) * 150
-            
-            bar = ctk.CTkFrame(
-                bar_container,
-                fg_color="#009E60",
-                corner_radius=4,
-                height=max(bar_height, 4)
-            )
-            bar.pack(side="bottom", pady=(0, 4))
-            
-            amount = f"{value // 1000}k"
-            ctk.CTkLabel(
-                bar_container,
-                text=amount,
-                font=ctk.CTkFont(size=10, weight="bold"),
-                text_color="#009E60"
-            ).pack(side="bottom")
-            
-            ctk.CTkLabel(
-                bar_container,
-                text=day,
-                font=ctk.CTkFont(size=9),
-                text_color="#6B7280"
-            ).pack(side="bottom", pady=(4, 0))
+        self._trips_chart_label = ctk.CTkLabel(
+            trips_card,
+            text="📈 Graphique des trajets",
+            font=ctk.CTkFont(size=14),
+            text_color=("#6B7280", "#9CA3AF"),
+        )
+        self._trips_chart_label.pack(expand=True)
     
     def _build_recent_activity(self):
-        """Activité récente et alertes."""
-        activity_frame = ctk.CTkFrame(self, fg_color="transparent")
-        activity_frame.pack(fill="x", pady=(0, 24))
-        activity_frame.grid_columnconfigure(0, weight=1)
-        activity_frame.grid_columnconfigure(1, weight=1)
-        
-        self._build_recent_trips(activity_frame)
-        self._build_recent_alerts(activity_frame)
-    
-    def _build_recent_trips(self, parent):
-        """Liste des trajets récents."""
-        card = FluentCard(parent, title="Trajets récents", padding=16)
-        card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
-        
-        self._trips_list = ctk.CTkScrollableFrame(card, fg_color="transparent")
-        self._trips_list.pack(fill="both", expand=True)
-        
-        for i in range(5):
-            self._add_trip_item(
-                self._trips_list,
-                f"Trip-{1000+i}",
-                ["Libreville", "Owendo"][i % 2],
-                ["2500", "3500", "4000", "3000", "2800"][i],
-                ["En cours", "Terminé", "Terminé", "En cours", "Terminé"][i]
-            )
-    
-    def _add_trip_item(self, parent, trip_id, route, amount, status):
-        """Ajoute un élément de trajet à la liste."""
-        item = ctk.CTkFrame(parent, fg_color=("#F5F5F5", "#2C2C2C"), corner_radius=8)
-        item.pack(fill="x", pady=4)
-        
-        status_colors = {
-            "En cours": ("#1A3A6C", "white"),
-            "Terminé": ("#009E60", "white"),
-            "Annulé": ("#E53E3E", "white")
-        }
-        
-        bg, fg = status_colors.get(status, ("#6B7280", "white"))
+        """Activité récente."""
+        activity_card = FluentCard(self)
+        activity_card.pack(fill="both", expand=True, pady=(0, 24))
         
         ctk.CTkLabel(
-            item,
-            text=trip_id,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            activity_card,
+            text="Activité récente",
+            font=ctk.CTkFont(size=16, weight="bold"),
             text_color=("#1A1A1A", "white"),
-            width=80
-        ).pack(side="left", padx=12, pady=12)
+        ).pack(anchor="w", pady=(0, 15))
         
-        ctk.CTkLabel(
-            item,
-            text=f"📍 {route}",
-            font=ctk.CTkFont(size=12),
-            text_color=("#6B7280", "#9CA3AF"),
-        ).pack(side="left", padx=12)
-        
-        ctk.CTkLabel(
-            item,
-            text=f"{amount} XAF",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#009E60", "#4DC882"),
-        ).pack(side="left", padx=12)
-        
-        status_label = ctk.CTkLabel(
-            item,
-            text=status,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=fg,
-            fg_color=bg,
-            corner_radius=4,
-            padx=8, pady=2
+        self._activity_list = ctk.CTkScrollableFrame(
+            activity_card,
+            fg_color="transparent"
         )
-        status_label.pack(side="right", padx=12)
+        self._activity_list.pack(fill="both", expand=True)
+        
+        self._add_activity_item("🔄", "Système", "Connexion établie")
+        self._add_activity_item("✅", "Admin", "Dashboard chargé")
     
-    def _build_recent_alerts(self, parent):
-        """Liste des alertes récentes."""
-        card = FluentCard(parent, title="Alertes récentes", padding=16)
-        card.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
+    def _add_activity_item(self, icon: str, source: str, message: str):
+        """Ajoute un élément d'activité."""
+        item = ctk.CTkFrame(self._activity_list, fg_color=("#F3F4F6", "#1F2937"))
+        item.pack(fill="x", pady=(0, 8))
         
-        alerts_list = ctk.CTkScrollableFrame(card, fg_color="transparent")
-        alerts_list.pack(fill="both", expand=True)
+        ctk.CTkLabel(
+            item,
+            text=icon,
+            font=ctk.CTkFont(size=16),
+            width=30
+        ).pack(side="left", padx=(10, 5))
         
-        alerts = [
-            ("🚨", "SOS déclenché", "Il y a 5 min", "#E53E3E"),
-            ("⚠️", "Déviation de route", "Il y a 12 min", "#FCD116"),
-            ("ℹ️", "Nouveau driver validé", "Il y a 28 min", "#1A3A6C"),
-            ("✅", "Incident résolu", "Il y a 1h", "#009E60"),
-        ]
+        ctk.CTkLabel(
+            item,
+            text=source,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=("#1A1A1A", "white"),
+        ).pack(side="left", padx=(5, 10))
         
-        for icon, title, time, color in alerts:
-            item = ctk.CTkFrame(alerts_list, fg_color="transparent")
-            item.pack(fill="x", pady=4)
-            
-            ctk.CTkLabel(
-                item,
-                text=icon,
-                font=ctk.CTkFont(size=18),
-            ).pack(side="left", padx=8)
-            
-            ctk.CTkLabel(
-                item,
-                text=title,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("#1A1A1A", "white"),
-            ).pack(side="left", padx=8)
-            
-            ctk.CTkLabel(
-                item,
-                text=time,
-                font=ctk.CTkFont(size=10),
-                text_color="#6B7280",
-            ).pack(side="right", padx=8)
+        ctk.CTkLabel(
+            item,
+            text=message,
+            font=ctk.CTkFont(size=13),
+            text_color=("#6B7280", "#9CA3AF"),
+        ).pack(side="left", padx=(5, 10))
+        
+        ctk.CTkLabel(
+            item,
+            text=datetime.now().strftime("%H:%M"),
+            font=ctk.CTkFont(size=12),
+            text_color=("#9CA3AF", "#6B7280"),
+        ).pack(side="right", padx=10)
     
     def _build_system_status(self):
-        """État du système."""
-        status_frame = FluentCard(self, title="État du système", padding=16)
+        """Statut du système."""
+        status_frame = ctk.CTkFrame(self, fg_color="transparent")
         status_frame.pack(fill="x")
         
-        grid = ctk.CTkFrame(status_frame, fg_color="transparent")
-        grid.pack(fill="x", pady=(16, 0))
+        status_card = FluentCard(status_frame)
+        status_card.pack(side="left", fill="x", expand=True, padx=(0, 12))
         
-        items = [
-            ("🟢", "Base de données", "Connectée", "#009E60"),
-            ("🟢", "API Backend", "En ligne", "#009E60"),
-            ("🟢", "Redis Cache", "Actif", "#009E60"),
-            ("🟡", "MinIO Stockage", "95% utilisé", "#FCD116"),
-            ("🟢", "WebSocket", "Connecté", "#009E60"),
-            ("🟢", "Caméra Raspberry", "42 en ligne", "#009E60"),
-        ]
+        ctk.CTkLabel(
+            status_card,
+            text="Statut système",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=("#1A1A1A", "white"),
+        ).pack(anchor="w", pady=(0, 10))
         
-        for i, (icon, name, status, color) in enumerate(items):
-            col = i % 3
-            row = i // 3
-            
-            item = ctk.CTkFrame(grid, fg_color="transparent")
-            item.grid(row=row, column=col, sticky="w", padx=16, pady=8)
+        self._status_labels = {}
+        for service in ["API", "Base de données", "Cache Redis", "WebSocket"]:
+            row = ctk.CTkFrame(status_card, fg_color="transparent")
+            row.pack(fill="x", pady=2)
             
             ctk.CTkLabel(
-                item,
-                text=icon,
-                font=ctk.CTkFont(size=16),
+                row,
+                text=service,
+                font=ctk.CTkFont(size=13),
+                text_color=("#6B7280", "#9CA3AF"),
             ).pack(side="left")
             
-            ctk.CTkLabel(
-                item,
-                text=f"  {name}",
-                font=ctk.CTkFont(size=12),
-                text_color=("#1A1A1A", "white"),
-            ).pack(side="left")
-            
-            ctk.CTkLabel(
-                item,
-                text=f"  {status}",
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=color,
-            ).pack(side="left")
+            status = ctk.CTkLabel(
+                row,
+                text="●",
+                font=ctk.CTkFont(size=14),
+                text_color="#22C55E"
+            )
+            status.pack(side="right")
+            self._status_labels[service] = status
     
     def _refresh_data(self):
-        """Actualise les données du dashboard."""
-        self._refresh_btn.set_loading(True)
-        
-        def refresh():
-            import time
-            time.sleep(1)
-            
-            new_values = {
-                "trips": str(random.randint(100, 200)),
-                "revenue": f"{random.randint(800, 1500)}K",
-                "drivers": str(random.randint(30, 60)),
-                "incidents": str(random.randint(0, 10)),
-            }
-            
-            self.after(0, lambda: self._update_kpis(new_values))
-            self.after(0, lambda: self._refresh_btn.set_loading(False))
-        
-        threading.Thread(target=refresh, daemon=True).start()
-    
-    def _update_kpis(self, values):
-        """Met à jour les valeurs des KPIs."""
-        self._trips_kpi.update_value(values["trips"])
-        self._revenue_kpi.update_value(values["revenue"])
-        self._drivers_kpi.update_value(values["drivers"])
-        self._incidents_kpi.update_value(values["incidents"])
+        """Rafraîchit les données."""
+        self._load_data()
     
     def _start_auto_refresh(self):
-        """Démarre l'actualisation automatique."""
-        def auto_refresh():
+        """Démarre le rafraîchissement automatique."""
+        def refresh_loop():
+            import time
             while True:
-                import time
                 time.sleep(60)
-                self.after(0, self._refresh_data)
+                self.after(0, self._load_data)
         
-        threading.Thread(target=auto_refresh, daemon=True).start()
+        thread = threading.Thread(target=refresh_loop, daemon=True)
+        thread.start()
+    
+    def on_show(self):
+        """Callback affiché."""
+        self._load_data()

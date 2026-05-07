@@ -6,6 +6,7 @@
 
 import customtkinter as ctk
 from desktop_admin.theme.components import FluentSidebar, KPICard, FluentCard
+from desktop_admin.api_service import AdminAPIClient
 
 
 class MainWindow(ctk.CTkFrame):
@@ -41,6 +42,9 @@ class MainWindow(ctk.CTkFrame):
         
         self._user_data = user_data or {}
         self._active_module = None
+        
+        # API Client - connecté au backend
+        self.api_client = AdminAPIClient()
         
         # Layout principal
         self.grid_columnconfigure(1, weight=1)
