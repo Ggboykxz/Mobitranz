@@ -14,7 +14,7 @@ from backend.database import init_db, engine
 from backend.redis_client import redis_client
 
 # Import routers
-from backend.routers import auth, trips, payments, drivers, vehicles, voice, incidents, analytics, users
+from backend.routers import auth, trips, payments, drivers, vehicles, voice, incidents, analytics, users, admin
 
 
 logger = structlog.get_logger()
@@ -67,6 +67,7 @@ app.include_router(voice.router, prefix="/voice")
 app.include_router(incidents.router, prefix="/incidents")
 app.include_router(analytics.router, prefix="/analytics")
 app.include_router(users.router, prefix="/users")
+app.include_router(admin.router, prefix="/admin")
 
 
 @app.get("/")
