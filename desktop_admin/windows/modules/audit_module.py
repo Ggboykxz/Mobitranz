@@ -1,216 +1,137 @@
 # ============================================================
-# Module Audit — Administration
+# Module Audit & Logs — Sécurité et traçabilité
 # Fichier : desktop_admin/windows/modules/audit_module.py
+# Description : Journalisation des actions et sécurité
 # ============================================================
 
 import customtkinter as ctk
-from desktop_admin.theme.components import FluentCard, KPICard
 from datetime import datetime
+from desktop_admin.theme.components import FluentCard, FluentButton
 
 
 class AuditModule(ctk.CTkFrame):
-    """Module de sécurité et logs."""
+    """Module d'audit et sécurité."""
     
-    def __init__(self, master, user_data=None, dashboard=None, **kwargs):
+    def __init__(self, master, dashboard=None, user_data=None, **kwargs):
         kwargs.setdefault("fg_color", "transparent")
-        kwargs.pop("dashboard", None)
-        kwargs.pop("user_data", None)
         super().__init__(master, **kwargs)
         
-        self._logs = [
-            {"timestamp": "14:32:15", "action": "LOGIN", "user": "admin@mobitranz.ga", "ip": "41.78.123.45", "status": "✅", "details": "Connexion réussie depuis le panneau admin"},
-            {"timestamp": "14:28:03", "action": "PAYMENT_INITIATED", "user": "client_456", "ip": "41.78.123.46", "status": "✅", "details": "Paiement de 150000 XOF initiated"},
-            {"timestamp": "14:15:22", "action": "USER_SUSPENDED", "user": "admin@mobitranz.ga", "ip": "41.78.123.45", "status": "✅", "details": "Compte utilisateur suspendu pour activité suspecte"},
-            {"timestamp": "13:45:11", "action": "LOGIN_FAILED", "user": "unknown", "ip": "41.78.123.50", "status": "❌", "details": "Échec de connexion - mot de passe incorrect"},
-            {"timestamp": "13:30:45", "action": "IP_BLOCKED", "user": "system", "ip": "41.78.123.50", "status": "🚫", "details": "IP bloquée après 3 tentatives échouées"},
-            {"timestamp": "13:15:00", "action": "PASSWORD_RESET", "user": "user@test.com", "ip": "41.78.123.47", "status": "✅", "details": "Mot de passe réinitialisé avec succès"},
-            {"timestamp": "12:50:22", "action": "ANOMALY_DETECTED", "user": "system", "ip": "41.78.123.60", "status": "⚠️", "details": "Activité inhabituelle détectée - multiple connexions simultanées"},
-            {"timestamp": "12:30:10", "action": "LOGIN_FAILED", "user": "hacker@test.com", "ip": "41.78.123.70", "status": "❌", "details": "Tentative de connexion suspecte"},
-        ]
-        self._active_filter = None
-        
+        self._build_header()
+        self._build_security_overview()
+        self._build_access_logs()
+        self._build_failed_logins()
+    
+    def _build_header(self):
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 16))
-        ctk.CTkLabel(header, text="Sécurité & Logs",
-            font=ctk.CTkFont(size=22, weight="bold"), text_color=("#1A1A1A", "white")).pack(side="left")
+        header.pack(fill="x", pady=(0, 20))
         
-        self._build_filters(header)
+        ctk.CTkLabel(header, text="🔒 Sécurité et Audit",
+                    font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
         
-        kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
-        kpi_frame.pack(fill="x", pady=(0, 16))
-        for i in range(4):
-            kpi_frame.grid_columnconfigure(i, weight=1, uniform="kpi")
-        
-        self.kpi_login = KPICard(kpi_frame, icon="🔒", title="Connexions", value="1,247")
-        self.kpi_login.grid(row=0, column=0, sticky="ew", padx=(0, 12))
-        
-        self.kpi_failed = self._create_clickable_kpi(kpi_frame, "⚠️", "Tentatives échouées", "12", "LOGIN_FAILED", row=0, column=1)
-        self.kpi_blocked = self._create_clickable_kpi(kpi_frame, "🚫", "IPs bloquées", "3", "IP_BLOCKED", row=0, column=2)
-        self.kpi_anomaly = self._create_clickable_kpi(kpi_frame, "⚡", "Anomalies", "1", "ANOMALY_DETECTED", row=0, column=3)
-        
-        self.card = FluentCard(self, title="Journal d'audit récent")
-        self.card.pack(fill="both", expand=True)
-        content = ctk.CTkFrame(self.card, fg_color="transparent")
-        content.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        
-        self.header_frame = ctk.CTkFrame(content, fg_color=("#F3F4F6", "#2D3748"))
-        self.header_frame.pack(fill="x", pady=(0, 8))
-        
-        headers = ["Horodatage", "Action", "Utilisateur", "IP ", "Statut"]
-        for h in headers:
-            ctk.CTkLabel(self.header_frame, text=h, font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("#6B7280", "#9CA3AF")).pack(side="left", padx=16, pady=8)
-        
-        self.logs_container = ctk.CTkFrame(content, fg_color="transparent")
-        self.logs_container.pack(fill="both", expand=True)
-        
-        self._render_logs()
-        
-        self._build_footer(content)
+        FluentButton(header, text="📥 Exporter logs", variant="secondary").pack(side="right")
     
-    def _build_filters(self, parent):
-        filter_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        filter_frame.pack(side="right")
+    def _build_security_overview(self):
+        """Vue d'ensemble de la sécurité."""
+        overview = ctk.CTkFrame(self, fg_color="transparent")
+        overview.pack(fill="x", pady=(0, 16))
         
-        ctk.CTkLabel(filter_frame, text="Filtrer:", 
-            font=ctk.CTkFont(size=12),
-            text_color=("#6B7280", "#9CA3AF")).pack(side="left", padx=(0, 8))
-        
-        self.filter_action = ctk.CTkComboBox(filter_frame, values=["Toutes les actions", "LOGIN", "LOGIN_FAILED", "IP_BLOCKED", "ANOMALY_DETECTED", "PAYMENT_INITIATED", "PASSWORD_RESET", "USER_SUSPENDED"], width=150)
-        self.filter_action.pack(side="left", padx=4)
-        self.filter_action.bind("<<ComboboxSelected>>", lambda e: self._apply_filters())
-        
-        self.filter_user = ctk.CTkEntry(filter_frame, placeholder_text="Utilisateur", width=120)
-        self.filter_user.pack(side="left", padx=4)
-        self.filter_user.bind("<KeyRelease>", lambda e: self._apply_filters())
-        
-        self.filter_date = ctk.CTkEntry(filter_frame, placeholder_text="Date (JJ/MM)", width=100)
-        self.filter_date.pack(side="left", padx=4)
-        self.filter_date.bind("<KeyRelease>", lambda e: self._apply_filters())
-        
-        self.filter_ip = ctk.CTkEntry(filter_frame, placeholder_text="Adresse IP", width=100)
-        self.filter_ip.pack(side="left", padx=4)
-        self.filter_ip.bind("<KeyRelease>", lambda e: self._apply_filters())
-        
-        clear_btn = ctk.CTkButton(filter_frame, text="✕", width=30, command=self._clear_filters)
-        clear_btn.pack(side="left", padx=4)
-    
-    def _create_clickable_kpi(self, parent, icon, title, value, filter_value, row, column):
-        card = KPICard(parent, icon=icon, title=title, value=value)
-        card.grid(row=row, column=column, sticky="ew", padx=(0, 12))
-        
-        card.bind("<Button-1>", lambda e, fv=filter_value: self._on_kpi_click(fv))
-        for child in card.winfo_children():
-            child.bind("<Button-1>", lambda e, fv=filter_value: self._on_kpi_click(fv))
-            child.configure(cursor="hand2")
-        
-        return card
-    
-    def _on_kpi_click(self, filter_value):
-        self._active_filter = filter_value
-        self.filter_action.set(filter_value)
-        self._apply_filters()
-    
-    def _apply_filters(self):
-        action_val = self.filter_action.get()
-        user_val = self.filter_user.get().strip().lower()
-        date_val = self.filter_date.get().strip()
-        ip_val = self.filter_ip.get().strip()
-        
-        filtered = self._logs
-        
-        if action_val and action_val != "Toutes les actions":
-            filtered = [l for l in filtered if l["action"] == action_val]
-        
-        if user_val:
-            filtered = [l for l in filtered if user_val in l["user"].lower()]
-        
-        if date_val:
-            filtered = [l for l in filtered if date_val in l["timestamp"]]
-        
-        if ip_val:
-            filtered = [l for l in filtered if ip_val in l["ip"]]
-        
-        self._render_logs(filtered)
-    
-    def _clear_filters(self):
-        self.filter_action.set("Toutes les actions")
-        self.filter_user.delete(0, "end")
-        self.filter_date.delete(0, "end")
-        self.filter_ip.delete(0, "end")
-        self._active_filter = None
-        self._render_logs()
-    
-    def _render_logs(self, logs=None):
-        for widget in self.logs_container.winfo_children():
-            widget.destroy()
-        
-        display_logs = logs if logs is not None else self._logs
-        
-        for log in display_logs:
-            row = ctk.CTkFrame(self.logs_container, fg_color=("white", "#2C2C2C"), corner_radius=8)
-            row.pack(fill="x", pady=2)
-            row.configure(cursor="hand2")
-            
-            row.bind("<Button-1>", lambda e, l=log: self._show_log_details(l))
-            for child in row.winfo_children():
-                child.bind("<Button-1>", lambda e, l=log: self._show_log_details(l))
-                child.configure(cursor="hand2")
-            
-            ctk.CTkLabel(row, text=log["timestamp"], font=ctk.CTkFont(size=12), 
-                text_color=("#374151", "#D1D5DB")).pack(side="left", padx=16, pady=10)
-            ctk.CTkLabel(row, text=log["action"], font=ctk.CTkFont(size=12), 
-                text_color=("#374151", "#D1D5DB")).pack(side="left", padx=16, pady=10)
-            ctk.CTkLabel(row, text=log["user"], font=ctk.CTkFont(size=12), 
-                text_color=("#374151", "#D1D5DB")).pack(side="left", padx=16, pady=10)
-            ctk.CTkLabel(row, text=log["ip"], font=ctk.CTkFont(size=12), 
-                text_color=("#374151", "#D1D5DB")).pack(side="left", padx=16, pady=10)
-            ctk.CTkLabel(row, text=log["status"], font=ctk.CTkFont(size=12), 
-                text_color=("#374151", "#D1D5DB")).pack(side="left", padx=16, pady=10)
-    
-    def _show_log_details(self, log):
-        details_win = ctk.CTkToplevel(self)
-        details_win.title(f"Détails du log - {log['action']}")
-        details_win.geometry("500x350")
-        details_win.transient(self)
-        details_win.grab_set()
-        
-        main_frame = ctk.CTkFrame(details_win, fg_color=("white", "#1E1E1E"))
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        title = ctk.CTkLabel(main_frame, text=f"Log: {log['action']}", 
-            font=ctk.CTkFont(size=18, weight="bold"), text_color=("#1A1A1A", "white"))
-        title.pack(anchor="w", pady=(0, 20))
-        
-        fields = [
-            ("Horodatage", log["timestamp"]),
-            ("Action", log["action"]),
-            ("Utilisateur", log["user"]),
-            ("Adresse IP", log["ip"]),
-            ("Statut", log["status"]),
-            ("Détails", log["details"]),
+        stats = [
+            ("✅", "128", "Connexions aujourd'hui", "#009E60"),
+            ("⚠️", "3", "Tentatives bloquées", "#E53E3E"),
+            ("🔐", "12", "Sessions actives", "#1A3A6C"),
+            ("👥", "5", "Admins en ligne", "#7C3AED"),
         ]
         
-        for label, value in fields:
-            row = ctk.CTkFrame(main_frame, fg_color="transparent")
-            row.pack(fill="x", pady=8)
+        for icon, value, label, color in stats:
+            card = FluentCard(overview, padding=16)
+            card.pack(side="left", padx=(0, 12), fill="both", expand=True)
             
-            ctk.CTkLabel(row, text=f"{label}:", font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("#6B7280", "#9CA3AF"), width=100, anchor="w").pack(side="left")
+            ctk.CTkLabel(card, text=icon, font=ctk.CTkFont(size=20)).pack()
+            ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=28, weight="bold"),
+                        text_color=color).pack()
+            ctk.CTkLabel(card, text=label, font=ctk.CTkFont(size=11),
+                        text_color="#6B7280").pack()
+    
+    def _build_access_logs(self):
+        """Journal des accès."""
+        section = ctk.CTkFrame(self, fg_color="transparent")
+        section.pack(fill="x", pady=(0, 16))
+        
+        ctk.CTkLabel(section, text="📋 Journal des accès",
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 12))
+        
+        filters = FluentCard(section, padding=12)
+        filters.pack(fill="x", pady=(0, 8))
+        
+        ctk.CTkEntry(filters, placeholder="Rechercher...", width=200).pack(side="left", padx=(0, 8))
+        ctk.CTkOptionMenu(filters, values=["Toutes actions", "LOGIN", "LOGOUT", "CREATE", "UPDATE", "DELETE"],
+                         width=150).pack(side="left", padx=(0, 8))
+        ctk.CTkOptionMenu(filters, values=["Tous utilisateurs", "admin", "driver", "client"],
+                         width=150).pack(side="left")
+        
+        table_card = FluentCard(section, padding=0)
+        table_card.pack(fill="both", expand=True)
+        
+        headers = ["Horodatage", "Utilisateur", "Action", "Ressource", "IP", "Résultat"]
+        
+        header_frame = ctk.CTkFrame(table_card, fg_color="#F5F5F5", corner_radius=0)
+        header_frame.pack(fill="x")
+        
+        for h in headers:
+            ctk.CTkLabel(header_frame, text=h, font=ctk.CTkFont(size=12, weight="bold"),
+                        text_color="#6B7280", width=140).pack(side="left", padx=8, pady=10)
+        
+        body = ctk.CTkScrollableFrame(table_card, fg_color="transparent")
+        body.pack(fill="both", expand=True)
+        
+        actions = ["LOGIN", "LOGOUT", "CREATE_USER", "UPDATE_TRIP", "DELETE_PAYMENT", "VIEW_RECORDING"]
+        resources = ["auth", "trips:TR00012", "users:user_0042", "payments:TXN123456", "recordings:cam_01"]
+        users = ["admin@mobitranz.ga", "driver_01", "client_05", "admin@mobitranz.ga"]
+        ips = ["192.168.1.45", "192.168.1.78", "192.168.1.102", "192.168.1.45"]
+        results = ["success", "success", "success", "failure", "success", "success"]
+        
+        for i in range(15):
+            row = ctk.CTkFrame(body, fg_color="transparent")
+            row.pack(fill="x")
             
-            ctk.CTkLabel(row, text=value, font=ctk.CTkFont(size=12),
-                text_color=("#1A1A1A", "white"), anchor="w").pack(side="left", fill="x", expand=True)
-        
-        close_btn = ctk.CTkButton(main_frame, text="Fermer", command=details_win.destroy)
-        close_btn.pack(anchor="e", pady=(20, 0))
+            result_colors = {"success": "#009E60", "failure": "#E53E3E"}
+            
+            ctk.CTkLabel(row, text=f"2026-05-07 {10+i%12:02d}:{i%60:02d}:00", width=140, font=ctk.CTkFont(size=10)).pack(side="left", padx=8, pady=6)
+            ctk.CTkLabel(row, text=users[i % 4], width=140, font=ctk.CTkFont(size=10)).pack(side="left", padx=8)
+            ctk.CTkLabel(row, text=actions[i % 6], width=140, font=ctk.CTkFont(size=10, weight="bold"), text_color="#1A3A6C").pack(side="left", padx=8)
+            ctk.CTkLabel(row, text=resources[i % 5], width=140, font=ctk.CTkFont(size=10)).pack(side="left", padx=8)
+            ctk.CTkLabel(row, text=ips[i % 4], width=140, font=ctk.CTkFont(size=10), text_color="#6B7280").pack(side="left", padx=8)
+            ctk.CTkLabel(row, text=results[i % 4].upper(), fg_color=result_colors.get(results[i % 4]),
+                        text_color="white", corner_radius=4, font=ctk.CTkFont(size=10, weight="bold"),
+                        padx=8, pady=2).pack(side="left", padx=8)
     
-    def _build_footer(self, parent):
-        footer = ctk.CTkFrame(parent, fg_color="transparent")
-        footer.pack(fill="x", pady=(16, 0))
+    def _build_failed_logins(self):
+        """Tentatives de connexion échouées."""
+        section = ctk.CTkFrame(self, fg_color="transparent")
+        section.pack(fill="both", expand=True)
         
-        see_more_btn = ctk.CTkButton(footer, text="Voir plus →", command=self._see_more,
-            fg_color=("#1A3A6C", "#2563EB"), hover_color=("#1E40AF", "#1D4ED8"))
-        see_more_btn.pack(side="right")
-    
-    def _see_more(self):
-        print("Voir plus clicked - afficher historique complet")
+        ctk.CTkLabel(section, text="⚠️ Alertes de sécurité",
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 12))
+        
+        alerts = [
+            ("🔴", "admin@mobitranz.ga", "3 tentatives échouées", "Il y a 15 min", "Bloquer IP"),
+            ("🟡", "+24107XXX1234", "Compte verrouillé", "Il y a 1h", "Déverrouiller"),
+            ("🔴", "driver_08", "Accès camera suspect", "Il y a 2h", "Investiguer"),
+        ]
+        
+        for icon, user, desc, time, action in alerts:
+            card = FluentCard(section, padding=16)
+            card.pack(fill="x", pady=(0, 8))
+            
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x")
+            
+            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=20)).pack(side="left", padx=(0, 12))
+            
+            info = ctk.CTkFrame(row, fg_color="transparent")
+            info.pack(side="left", fill="x", expand=True)
+            
+            ctk.CTkLabel(info, text=user, font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(info, text=f"{desc} • {time}", font=ctk.CTkFont(size=11), text_color="#6B7280").pack(anchor="w")
+            
+            FluentButton(row, text=action, variant="danger" if "Bloquer" in action else "secondary").pack(side="right")

@@ -1,198 +1,146 @@
 # ============================================================
-# Module Reports — Administration
+# Module Rapports — Génération de rapports MobiTranz
 # Fichier : desktop_admin/windows/modules/reports_module.py
+# Description : Rapports ministériels et exports PDF/CSV
 # ============================================================
 
 import customtkinter as ctk
-from desktop_admin.theme.components import FluentCard, KPICard, FluentButton
-
-
-class ClickableKPICard(KPICard):
-    """KPICard cliquable pour navigation vers analytics."""
-    
-    def __init__(self, master, icon, title, value, navigate_to=None, **kwargs):
-        super().__init__(master, icon=icon, title=title, value=value, **kwargs)
-        self.navigate_to = navigate_to
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Enter>", self._on_hover)
-        self.bind("<Leave>", self._on_leave)
-        self.configure(cursor="hand2")
-    
-    def _on_click(self, event):
-        if self.navigate_to:
-            print(f"Navigation vers: {self.navigate_to}")
-    
-    def _on_hover(self, event):
-        self.configure(cursor="hand2")
-    
-    def _on_leave(self, event):
-        self.configure(cursor="arrow")
-
-
-class ClickableReportRow(ctk.CTkFrame):
-    """Ligne de rapport cliquable."""
-    
-    def __init__(self, master, report_data, on_click=None, **kwargs):
-        kwargs.setdefault("fg_color", ("#F3F4F6", "#1F2937"))
-        super().__init__(master, **kwargs)
-        self.report_data = report_data
-        self.on_click = on_click
-        self._hover = False
-        
-        self.pack(fill="x", pady=2)
-        
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-        self.bind("<Motion>", self._on_motion)
-        self.configure(cursor="hand2")
-        
-        self._build_ui()
-    
-    def _build_ui(self):
-        date, report_type, dest, status, records = self.report_data
-        status_colors = {
-            "Terminé": ("#10B981", "#065F46"),
-            "En cours": ("#F59E0B", "#92400E"),
-            "En attente": ("#6B7280", "#374151")
-        }
-        status_fg, status_bg = status_colors.get(status, ("#6B7280", "#374151"))
-        
-        ctk.CTkLabel(self, text=date, font=ctk.CTkFont(size=13),
-            text_color=("#374151", "#D1D5DB"), width=100).pack(side="left", padx=12, pady=12)
-        ctk.CTkLabel(self, text=report_type, font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=("#1A1A1A", "white"), width=180).pack(side="left", padx=12)
-        ctk.CTkLabel(self, text=dest, font=ctk.CTkFont(size=13),
-            text_color=("#374151", "#D1D5DB"), width=120).pack(side="left", padx=12)
-        ctk.CTkLabel(self, text=status, font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=status_fg, fg_color=status_bg, corner_radius=6,
-            width=80, height=24).pack(side="left", padx=12)
-        ctk.CTkLabel(self, text=f"{records} lignes", font=ctk.CTkFont(size=13),
-            text_color=("#374151", "#D1D5DB")).pack(side="right", padx=12)
-    
-    def _on_click(self, event):
-        if self.on_click:
-            self.on_click(self.report_data)
-        print(f"Ouvrir rapport: {self.report_data}")
-    
-    def _on_enter(self, event):
-        self._hover = True
-        self.configure(fg_color=("#E5E7EB", "#374151"))
-    
-    def _on_leave(self, event):
-        self._hover = False
-        self.configure(fg_color=("#F3F4F6", "#1F2937"))
-    
-    def _on_motion(self, event):
-        if not self._hover:
-            self._on_enter(event)
+from datetime import datetime, timedelta
+from desktop_admin.theme.components import FluentCard, FluentButton
 
 
 class ReportsModule(ctk.CTkFrame):
-    """Module de rapports ministériels."""
+    """Module de génération de rapports."""
     
-    def __init__(self, master, user_data=None, dashboard=None, **kwargs):
+    def __init__(self, master, dashboard=None, user_data=None, **kwargs):
         kwargs.setdefault("fg_color", "transparent")
-        kwargs.pop("dashboard", None)
-        kwargs.pop("user_data", None)
         super().__init__(master, **kwargs)
         
+        self._build_header()
+        self._build_ministry_reports()
+        self._build_financial_reports()
+        self._build_custom_reports()
+    
+    def _build_header(self):
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 16))
-        ctk.CTkLabel(header, text="Rapports ministériels",
-            font=ctk.CTkFont(size=22, weight="bold"), text_color=("#1A1A1A", "white")).pack(side="left")
+        header.pack(fill="x", pady=(0, 20))
         
-        right = ctk.CTkFrame(header, fg_color="transparent")
-        right.pack(side="right")
-        FluentButton(right, text="📥 Exporter CSV", variant="secondary", height=36).pack(side="right")
+        ctk.CTkLabel(header, text="Rapports et exports",
+                    font=ctk.CTkFont(size=24, weight="bold")).pack(side="left")
+    
+    def _build_ministry_reports(self):
+        """Rapports pour les ministères."""
+        section = ctk.CTkFrame(self, fg_color="transparent")
+        section.pack(fill="x", pady=(0, 16))
         
-        kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
-        kpi_frame.pack(fill="x", pady=(0, 16))
-        for i in range(3):
-            kpi_frame.grid_columnconfigure(i, weight=1, uniform="kpi")
-        kpis = [
-            ("📊", "Rapports générés", "24", "analytics_generated"),
-            ("📅", "Ce mois", "8", "analytics_monthly"),
-            ("📧", "Envoyés", "6", "analytics_sent")
+        ctk.CTkLabel(section, text="📊 Rapports ministériels",
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 12))
+        
+        reports = [
+            ("🚛", "Ministère des Transports", "Rapport mensuel trafic", "Générer"),
+            ("🛡️", "Ministère de l'Intérieur", "Rapport sécurité incidents", "Générer"),
+            ("📋", "Direction Générale", "Statistiques globales", "Générer"),
         ]
-        for i, (icon, title, value, nav) in enumerate(kpis):
-            ClickableKPICard(kpi_frame, icon=icon, title=title, value=value, navigate_to=nav).grid(
-                row=0, column=i, sticky="ew", padx=(0, 16 if i < 2 else 0))
         
-        card = FluentCard(self, title="Générer un rapport")
-        card.pack(fill="both", expand=False, pady=(0, 16))
+        for icon, title, desc, action in reports:
+            card = FluentCard(section, padding=16)
+            card.pack(fill="x", pady=(0, 8))
+            
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x")
+            
+            ctk.CTkLabel(row, text=icon, font=ctk.CTkFont(size=24)).pack(side="left", padx=(0, 12))
+            
+            info = ctk.CTkFrame(row, fg_color="transparent")
+            info.pack(side="left", fill="x", expand=True)
+            
+            ctk.CTkLabel(info, text=title, font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(info, text=desc, font=ctk.CTkFont(size=11), text_color="#6B7280").pack(anchor="w")
+            
+            FluentButton(row, text=action, variant="primary", command=lambda t=title: self._generate_report(t)).pack(side="right")
+    
+    def _build_financial_reports(self):
+        """Rapports financiers."""
+        section = ctk.CTkFrame(self, fg_color="transparent")
+        section.pack(fill="x", pady=(0, 16))
+        
+        ctk.CTkLabel(section, text="💰 Rapports financiers",
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 12))
+        
+        grid = ctk.CTkFrame(section, fg_color="transparent")
+        grid.pack(fill="x")
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+        
+        cards = [
+            ("📅", "Rapport journalier", "Détails par jour"),
+            ("📆", "Rapport hebdomadaire", "Résumé hebdo"),
+            ("🗓️", "Rapport mensuel", "Bilan mensuel"),
+            ("📊", "Analyse tendances", "Évolution sur 6 mois"),
+        ]
+        
+        for i, (icon, title, desc) in enumerate(cards):
+            card = FluentCard(grid, padding=16)
+            card.grid(row=i//2, column=i%2, sticky="nsew", padx=(0, 8), pady=(0, 8))
+            
+            ctk.CTkLabel(card, text=icon, font=ctk.CTkFont(size=24)).pack()
+            ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(8, 4))
+            ctk.CTkLabel(card, text=desc, font=ctk.CTkFont(size=11), text_color="#6B7280").pack()
+            
+            btns = ctk.CTkFrame(card, fg_color="transparent")
+            btns.pack(pady=(12, 0))
+            
+            FluentButton(btns, text="📄 PDF", variant="secondary", width=70, height=28,
+                        command=lambda t=title: self._export_pdf(t)).pack(side="left", padx=4)
+            FluentButton(btns, text="📊 CSV", variant="secondary", width=70, height=28,
+                        command=lambda t=title: self._export_csv(t)).pack(side="left", padx=4)
+    
+    def _build_custom_reports(self):
+        """Rapports personnalisés."""
+        section = ctk.CTkFrame(self, fg_color="transparent")
+        section.pack(fill="both", expand=True)
+        
+        ctk.CTkLabel(section, text="📈 Rapports personnalisés",
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w", pady=(0, 12))
+        
+        card = FluentCard(section, padding=20)
+        card.pack(fill="both", expand=True)
         
         form = ctk.CTkFrame(card, fg_color="transparent")
-        form.pack(fill="x", padx=20, pady=20)
+        form.pack(fill="x")
         
-        left_col = ctk.CTkFrame(form, fg_color="transparent")
-        left_col.pack(side="left", fill="both", expand=True, padx=(0, 24))
-        right_col = ctk.CTkFrame(form, fg_color="transparent")
-        right_col.pack(side="right", fill="both", expand=True)
+        ctk.CTkLabel(form, text="Type de données:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 8))
         
-        ctk.CTkLabel(left_col, text="Période:", font=ctk.CTkFont(size=14),
-            text_color=("#374151", "#D1D5DB")).pack(anchor="w", pady=(0, 8))
+        data_type = ctk.CTkOptionMenu(form, values=["Trajets", "Transactions", "Utilisateurs", "Drivers", "Incidents"],
+                                      width=180)
+        data_type.pack(side="left", padx=(0, 16))
         
-        period_options = ["Aujourd'hui", "Cette semaine", "Ce mois", "Ce trimestre", "Année en cours"]
-        self.period_vars = {}
-        period_check = ctk.CTkFrame(left_col, fg_color="transparent")
-        period_check.pack(fill="x", pady=(0, 12))
-        for i, period in enumerate(period_options):
-            var = ctk.CTkBooleanVar(value=True if i == 1 else False)
-            self.period_vars[period] = var
-            ctk.CTkCheckBox(period_check, text=period, variable=var, font=ctk.CTkFont(size=13),
-                text_color=("#374151", "#D1D5DB"), cursor="hand2").pack(anchor="w", pady=2)
+        ctk.CTkLabel(form, text="Période:", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 8))
         
-        ctk.CTkLabel(right_col, text="Type de rapport:", font=ctk.CTkFont(size=14),
-            text_color=("#374151", "#D1D5DB")).pack(anchor="w", pady=(0, 8))
+        period = ctk.CTkOptionMenu(form, values=["Aujourd'hui", "7 derniers jours", "30 derniers jours", "Ce mois", "Ce trimestre"],
+                                   width=180)
+        period.pack(side="left", padx=(0, 16))
         
-        type_options = ["Statistiques globales", "Revenus par zone", "Incidents", "Conformité"]
-        self.type_vars = {}
-        type_check = ctk.CTkFrame(right_col, fg_color="transparent")
-        type_check.pack(fill="x", pady=(0, 12))
-        for t in type_options:
-            var = ctk.CTkBooleanVar(value=True if t == "Statistiques globales" else False)
-            self.type_vars[t] = var
-            ctk.CTkCheckBox(type_check, text=t, variable=var, font=ctk.CTkFont(size=13),
-                text_color=("#374151", "#D1D5DB"), cursor="hand2").pack(anchor="w", pady=2)
+        FluentButton(form, text="Générer", variant="primary").pack(side="right")
         
-        ctk.CTkLabel(right_col, text="Destination:", font=ctk.CTkFont(size=14),
-            text_color=("#374151", "#D1D5DB")).pack(anchor="w", pady=(0, 8))
+        ctk.CTkLabel(card, text="Colonnes à inclure:", font=ctk.CTkFont(size=12), pady=(16, 8)).pack(anchor="w")
         
-        dest_options = ["Ministère", "Direction régionale", "Préfecture", "Archivage"]
-        self.dest_vars = {}
-        dest_check = ctk.CTkFrame(right_col, fg_color="transparent")
-        dest_check.pack(fill="x", pady=(0, 12))
-        for d in dest_options:
-            var = ctk.CTkBooleanVar(value=True if d == "Ministère" else False)
-            self.dest_vars[d] = var
-            ctk.CTkCheckBox(dest_check, text=d, variable=var, font=ctk.CTkFont(size=13),
-                text_color=("#374151", "#D1D5DB"), cursor="hand2").pack(anchor="w", pady=2)
+        cols_frame = ctk.CTkFrame(card, fg_color="transparent")
+        cols_frame.pack(fill="x")
         
-        FluentButton(form, text="📊 Générer le rapport", variant="primary", height=44).pack(fill="x", pady=(16, 0))
+        cols = ["Date", "ID", "Montant", "Statut", "Client", "Chauffeur", "Origine", "Destination"]
         
-        reports_card = FluentCard(self, title="Rapports récents")
-        reports_card.pack(fill="both", expand=True, pady=(0, 16))
-        
-        reports_data = [
-            ("2026-04-25", "Statistiques globales", "Ministère", "Terminé", 1247),
-            ("2026-04-24", "Revenus par zone", "Direction régionale", "Terminé", 892),
-            ("2026-04-23", "Incidents", "Ministère", "Terminé", 156),
-            ("2026-04-22", "Conformité", "Préfecture", "En cours", 43),
-            ("2026-04-21", "Statistiques globales", "Archivage", "Terminé", 1247),
-            ("2026-04-20", "Revenus par zone", "Ministère", "En attente", 0),
-        ]
-        
-        header_row = ctk.CTkFrame(reports_card, fg_color=("#E5E7EB", "#374151"))
-        header_row.pack(fill="x", padx=20, pady=(20, 0))
-        for text, w in [("Date", 100), ("Type", 180), ("Destination", 120), ("Statut", 80), ("Enregistrements", 100)]:
-            ctk.CTkLabel(header_row, text=text, font=ctk.CTkFont(size=13, weight="bold"),
-                text_color=("#374151", "#D1D5DB"), width=w).pack(side="left", padx=12)
-        
-        self.reports_container = ctk.CTkFrame(reports_card, fg_color="transparent")
-        self.reports_container.pack(fill="both", expand=True, padx=20, pady=8)
-        
-        for report in reports_data:
-            ClickableReportRow(self.reports_container, report_data=report)
-        
-        FluentButton(reports_card, text="Voir plus", variant="secondary", height=36).pack(pady=(0, 16))
+        for col in cols:
+            ctk.CTkCheckBox(cols_frame, text=col).pack(side="left", padx=8)
+    
+    def _generate_report(self, title):
+        """Génère un rapport."""
+        print(f"Génération: {title}")
+    
+    def _export_pdf(self, title):
+        """Exporte en PDF."""
+        print(f"Export PDF: {title}")
+    
+    def _export_csv(self, title):
+        """Exporte en CSV."""
+        print(f"Export CSV: {title}")
