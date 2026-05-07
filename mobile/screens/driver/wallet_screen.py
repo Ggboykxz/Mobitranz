@@ -1,53 +1,66 @@
 # ============================================================
-# Écran Porte-Monnaie Driver
+# Écran Wallet Chauffeur
 # Fichier : mobile/screens/driver/wallet_screen.py
-# Description : Solde + retrait MoovMoney/Airtel
+# Description : Gestion du wallet et des revenus
 # ============================================================
 
-from kivy.uix.screen import Screen
+from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
-from kivy.uix.popup import Popup
+from kivy.graphics import Color, RoundedRectangle
 from mobile.theme.colors import Colors
 
 
 class WalletScreen(Screen):
+    """Écran wallet MobiTranz pour chauffeurs."""
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.name = "wallet"
-        self._balance = 15750
-        self._pending = 2500
-        
+        self.build_ui()
+    
+    def build_ui(self):
+        """Construction de l'interface."""
         layout = BoxLayout(orientation="vertical", padding=20, spacing=15)
         
-        header = BoxLayout(
+        layout.add_widget(Label(
+            text="Mon Wallet",
+            font_size=28,
             size_hint_y=None,
-            height="56dp",
-            padding=10,
-            background_color=Colors.ACCENT
-        )
-        header.add_widget(Label(
-            text="Porte-Monnaie",
-            font_size=20,
-            color=(1, 1, 1, 1)
+            height=50,
+            color=Colors.TEXT_PRIMARY
         ))
         
+        scroll = ScrollView()
+        content = BoxLayout(orientation="vertical", padding=10, spacing=15, size_hint_y=None)
+        content.bind(minimum_height=content.setter('height'))
+        
+        content.add_widget(self._create_balance_card())
+        content.add_widget(self._create_recent_transactions())
+        
+        scroll.add_widget(content)
+        layout.add_widget(scroll)
+        
+        self.add_widget(layout)
+    
+    def _create_balance_card(self):
+        """Crée la carte de solde."""
         card = BoxLayout(
             orientation="vertical",
             padding=20,
             spacing=10,
             size_hint_y=None,
-            height="180dp",
-            canvas.before={
-                "Color": {"rgba": Colors.ACCENT},
-                "RoundedRectangle": {
-                    "pos": self.pos, "size": self.size,
-                    "radius": [16, 16, 16, 16]
-                }
-            }
+            height="180dp"
         )
+        
+        with card.canvas.before:
+            Color(rgba=Colors.ACCENT)
+            card._bg = RoundedRectangle(
+                pos=card.pos, size=card.size, radius=[16, 16, 16, 16]
+            )
+        
+        card.bind(pos=self._update_bg, size=self._update_bg)
         
         card.add_widget(Label(
             text="Solde disponible",
@@ -58,8 +71,7 @@ class WalletScreen(Screen):
         card.add_widget(Label(
             text="15,750 XAF",
             font_size=36,
-            color=(1, 1, 1, 1),
-            font_name="Roboto-Bold"
+            color=(1, 1, 1, 1)
         ))
         
         card.add_widget(Label(
@@ -68,145 +80,63 @@ class WalletScreen(Screen):
             color=(1, 1, 1, 0.6)
         ))
         
-        actions = BoxLayout(size_hint_y=None, height="50dp", spacing=10)
+        return card
+    
+    def _update_bg(self, instance, value):
+        """Met à jour le fond."""
+        instance.canvas.before.ask_update()
+    
+    def _create_recent_transactions(self):
+        """Crée la liste des transactions récentes."""
+        container = BoxLayout(orientation="vertical", size_hint_y=None, height="300dp")
         
-        withdraw_btn = Button(
-            text="Retirer",
-            background_color=(1, 1, 1, 0.2),
-            color=(1, 1, 1, 1),
-            on_press=self.show_withdraw
-        )
-        
-        topup_btn = Button(
-            text="Recharger",
-            background_color=(1, 1, 1, 0.2),
-            color=(1, 1, 1, 1),
-            on_press=lambda x: None
-        )
-        
-        actions.add_widget(withdraw_btn)
-        actions.add_widget(topup_btn)
-        
-        history_title = Label(
-            text="Historique",
-            font_size=16,
-            color=Colors.TEXT_PRIMARY,
+        container.add_widget(Label(
+            text="Transactions récentes",
+            font_size=18,
             size_hint_y=None,
-            height="36dp",
-            halign="left"
-        )
+            height=40,
+            color=Colors.TEXT_PRIMARY
+        ))
         
-        history_scroll = BoxLayout(
-            orientation="vertical",
-            size_hint_y=0.5,
-            spacing=1
-        )
-        
-        sample_txs = [
-            ("+2,000 XAF", "MoovMoney", True, "10:30"),
-            ("+1,500 XAF", "Airtel Money", True, "09:15"),
-            ("-500 XAF", "Retrait", False, "Hier"),
-            ("+3,000 XAF", "MoovMoney", True, "Hier"),
+        transactions = [
+            {"type": "Trip", "amount": "+1,500 XAF", "date": "Aujourd'hui, 14:30"},
+            {"type": "Trip", "amount": "+2,000 XAF", "date": "Aujourd'hui, 10:15"},
+            {"type": "Retrait", "amount": "-10,000 XAF", "date": "Hier, 16:00"},
+            {"type": "Trip", "amount": "+800 XAF", "date": "Hier, 09:45"},
         ]
         
-        for amount, method, is_credit, time in sample_txs:
-            tx_row = BoxLayout(
-                size_hint_y=None,
-                height="50dp",
-                padding=5
-            )
-            
-            icon = "+" if is_credit else "-"
-            color = Colors.ACCENT if is_credit else Colors.TEXT_SECONDARY
-            
-            tx_row.add_widget(Label(
-                text=amount,
-                font_size=14,
-                color=color,
-                size_hint_x=0.35
-            ))
-            tx_row.add_widget(Label(
-                text=method,
-                font_size=12,
-                color=Colors.TEXT_SECONDARY,
-                size_hint_x=0.4
-            ))
-            tx_row.add_widget(Label(
-                text=time,
-                font_size=12,
-                color=Colors.TEXT_SECONDARY,
-                size_hint_x=0.25
-            ))
-            
-            history_scroll.add_widget(tx_row)
+        for txn in transactions:
+            container.add_widget(self._create_transaction_item(txn))
         
-        layout.add_widget(header)
-        layout.add_widget(card)
-        layout.add_widget(actions)
-        layout.add_widget(history_title)
-        layout.add_widget(history_scroll)
-        
-        self.add_widget(layout)
+        return container
     
-    def show_withdraw(self, instance):
-        popup_layout = BoxLayout(
-            orientation="vertical",
-            padding=20,
-            spacing=15,
-            size=(300, 250)
+    def _create_transaction_item(self, txn):
+        """Crée un élément de transaction."""
+        item = BoxLayout(
+            size_hint_y=None,
+            height=60,
+            padding=10,
+            spacing=10
         )
         
-        popup_layout.add_widget(Label(
-            text="Retirer de l'argent",
-            font_size=18,
-            color=Colors.PRIMARY,
-            size_hint_y=None,
-            height="36dp"
+        item.add_widget(Label(
+            text=txn["type"],
+            size_hint_x=0.3,
+            color=Colors.TEXT_SECONDARY
         ))
         
-        self.withdraw_input = TextInput(
-            hint_text="Montant XAF",
-            multiline=False,
-            input_type="number",
-            size_hint_y=None,
-            height="48dp"
-        )
-        
-        method_layout = BoxLayout(size_hint_y=None, height="36dp", spacing=10)
-        method_layout.add_widget(Button(
-            text="MoovMoney",
-            on_press=lambda x: setattr(self, "_selected_method", "moovmoney")
-        ))
-        method_layout.add_widget(Button(
-            text="Airtel Money",
-            on_press=lambda x: setattr(self, "_selected_method", "airtelmoney")
+        amount_color = (0, 0.8, 0, 1) if "+" in txn["amount"] else (0.8, 0, 0, 1)
+        item.add_widget(Label(
+            text=txn["amount"],
+            size_hint_x=0.4,
+            color=amount_color
         ))
         
-        confirm_btn = Button(
-            text="Confirmer",
-            background_color=Colors.ACCENT,
-            color=(1, 1, 1, 1),
-            size_hint_y=None,
-            height="48dp",
-            on_press=self.process_withdraw
-        )
+        item.add_widget(Label(
+            text=txn["date"],
+            size_hint_x=0.3,
+            color=Colors.TEXT_SECONDARY,
+            font_size=12
+        ))
         
-        popup_layout.add_widget(self.withdraw_input)
-        popup_layout.add_widget(method_layout)
-        popup_layout.add_widget(confirm_btn)
-        
-        self._popup = Popup(
-            title="",
-            content=popup_layout,
-            size_hint=(0.8, 0.4),
-            auto_dismiss=True
-        )
-        self._popup.open()
-    
-    def process_withdraw(self, instance):
-        amount_text = self.withdraw_input.text.strip()
-        if amount_text and amount_text.isdigit():
-            amount = int(amount_text)
-            if amount > 0 and amount <= self._balance:
-                self._popup.dismiss()
-        self._popup.dismiss()
+        return item

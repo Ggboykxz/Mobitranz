@@ -5,8 +5,7 @@
 # ============================================================
 
 import asyncio
-from kivy.storage.redisstore import RedisStore
-from kivy.storage.jsonfile import JsonStore
+from kivy.storage.jsonstore import JsonStore
 import json
 
 
