@@ -44,7 +44,7 @@ class RedisClient:
             RuntimeError: Si la connexion n'est pas établie
         """
         if not self._redis:
-            raise RuntimeError("Redis non connecté. Appeler connect()d'abord")
+            raise RuntimeError("Redis non connecté. Appeler connect() d'abord")
         return self._redis
     
     async def set_session(

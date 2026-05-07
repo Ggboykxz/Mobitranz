@@ -75,8 +75,8 @@ async def get_user(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_user(
     phone: str,
-    email: str = None,
     password: str,
+    email: str = None,
     role: str = "client",
     first_name: str = None,
     last_name: str = None,

@@ -8,7 +8,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import secrets
 import hashlib
-import jwt
+from jose import jwt
+from jose.exceptions import JWTError, JWSError
 import bcrypt
 import pyotp
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,9 +133,7 @@ class AuthService:
                 algorithms=[settings.jwt_algorithm]
             )
             return payload
-        except jwt.ExpiredSignatureError:
-            return None
-        except jwt.InvalidTokenError:
+        except JWTError:
             return None
     
     async def authenticate_user(

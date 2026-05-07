@@ -7,11 +7,13 @@
 import pytest
 import asyncio
 import json
-import jwt
+from jose import jwt
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.config import settings
+from backend.services.auth_service import auth_service
+from backend.services.voice_service import voice_proposal_service
 
 
 class TestMultiRoleAuth:
@@ -354,11 +356,6 @@ class TestBiometricAllRoles:
         biometrics = [f"fingerprint_role_{i}_data" for i in range(4)]
         hashes = [auth_service.hash_biometric(b) for b in biometrics]
         assert len(set(hashes)) == 4
-
-
-# Patch imports at module level
-from backend.services.auth_service import auth_service
-from backend.services.voice_service import voice_proposal_service
 
 
 class TestQRService:
