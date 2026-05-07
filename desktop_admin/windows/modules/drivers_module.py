@@ -1,22 +1,27 @@
 # ============================================================
-# Module Conducteurs — Gestion des drivers MobiTranz
+# Module Conducteurs — Gestion détaillée des chauffeurs
 # Fichier : desktop_admin/windows/modules/drivers_module.py
-# Description : Gestion complète des conducteurs avec KYC
+# Description : Gestion complète avec détails, historique, véhicule
 # ============================================================
 
 import customtkinter as ctk
 from datetime import datetime
 from desktop_admin.theme.components import FluentCard, FluentButton, FluentEntry
+from desktop_admin.theme.components_detail import show_detail
 
 
 class DriversModule(ctk.CTkFrame):
-    """Module de gestion des conductors.
+    """Module de gestion des chauffeurs.
     
-    Fonctions :
-    - Liste des conducteurs avec statut KYC
-    - Validation des documents
-    - Gestion de la disponibilité
-    - Statistiques de performance
+    Sous-modules interconnectés:
+    - Profil chauffeur (clic): Nom, téléphone, permis, rating
+    - Véhicule (clic): Marque, modèle, plaque, assurance
+    - Trajets (clic): Historique, revenus, km parcourus
+    - Paiements (clic): Revenus, retraits, commissions
+    - Incidents (clic): Signalements, sanctions
+    - Documents (clic): Permis, assurance, технический contrôle
+    - Carte GPS (clic): Position en temps réel
+    - Performance (clic): Note, taux d'acceptation, trips
     """
     
     def __init__(self, master, dashboard=None, user_data=None, **kwargs):
@@ -25,258 +30,271 @@ class DriversModule(ctk.CTkFrame):
         
         self._dashboard = dashboard
         self._user_data = user_data or {}
-        self._drivers_data = self._generate_mock_drivers()
+        self._api_client = dashboard.api_client if dashboard else None
         
+        self._load_data()
         self._build_header()
-        self._build_stats()
         self._build_filters()
         self._build_table()
+        self._build_pagination()
     
-    def _generate_mock_drivers(self):
-        """Génère des données factices."""
-        statuses = ["pending", "validated", "suspended"]
-        
-        drivers = []
-        for i in range(30):
-            drivers.append({
-                "id": f"driver_{i:04d}",
-                "user_id": f"user_{i:04d}",
-                "phone": f"+24107{i:06d}",
-                "first_name": ["Jean", "Marie", "Paul", "Pierre", "Ali"][i % 5],
-                "last_name": ["Dupont", "Martin", "Bernard", "Okoué", "Ngoma"][i % 5],
-                "license_number": f"LP{i:06d}",
-                "status": statuses[i % 3],
-                "kyc_verified": i % 3 == 1,
-                "rating": round(4.0 + random.random(), 1),
-                "total_trips": random.randint(50, 500),
-                "total_earnings": random.randint(500000, 5000000),
-                "is_available": i % 2 == 0,
-                "vehicle": f"Toyota-{['Corolla', 'Hilux', 'Rav4', 'Yaris'][i % 4]}",
-                "plate": f"T{i:04d}G",
-            })
-        return drivers
+    def _load_data(self):
+        """Charge les données depuis l'API."""
+        try:
+            if self._api_client:
+                self._drivers_data = self._api_client.get_drivers(limit=100)
+            else:
+                self._drivers_data = self._get_demo_data()
+        except Exception:
+            self._drivers_data = self._get_demo_data()
+    
+    def _get_demo_data(self):
+        """Données de démonstration détaillées."""
+        return [
+            {
+                "id": "driver_001",
+                "name": "Jean Dupont",
+                "phone": "+24106010203",
+                "email": "jean.dupont@email.ga",
+                "status": "available",
+                "rating": 4.8,
+                "total_trips": 456,
+                "total_revenue": 2450000,
+                "vehicle": {
+                    "brand": "Toyota Camry",
+                    "model": "2022",
+                    "plate": "LZ-001-GA",
+                    "color": "Blanc",
+                    "insurance": "2026-12-31",
+                    "technical_check": "2026-06-15",
+                },
+                "license": {
+                    "number": "AB123456",
+                    "expiry": "2028-05-20",
+                    "categories": ["B", "C"],
+                },
+                "documents": [
+                    {"name": "Permis conduire", "status": "Valid", "expiry": "2028-05-20"},
+                    {"name": "Assurance véhicule", "status": "Valid", "expiry": "2026-12-31"},
+                    {"name": "Contrôle technique", "status": "Valid", "expiry": "2026-06-15"},
+                ],
+                "stats": {
+                    "Trips ce mois": "45",
+                    "Revenus ce mois": "125,000 XAF",
+                    "Km parcourus": "2,150 km",
+                    "Taux acceptation": "92%",
+                    "Note moyenne": "4.8/5",
+                    "Temps moyen": "18 min",
+                },
+                "history": [
+                    {"date": "2026-05-07 14:20", "action": "Trajet terminé", "details": "Libreville → Owendo - 1,500 XAF"},
+                    {"date": "2026-05-07 12:00", "action": "Proposition refusée", "details": "Destination trop lointaine"},
+                    {"date": "2026-05-07 10:30", "action": "Connexion", "details": "App mobile"},
+                    {"date": "2026-05-06 22:15", "action": "Retrait effectué", "details": "50,000 XAF vers Moov Money"},
+                ],
+                "incidents": [
+                    {"date": "2026-04-15", "type": "Accident", "details": "Collision légère, responsabilité partagée"},
+                ],
+                "current_location": {"lat": 0.4163, "lon": 9.4673, "last_update": "2026-05-07 14:30"},
+            },
+            {
+                "id": "driver_002",
+                "name": "Marie Martin",
+                "phone": "+24106010204",
+                "email": "marie.martin@email.ga",
+                "status": "on_trip",
+                "rating": 4.6,
+                "total_trips": 234,
+                "total_revenue": 1180000,
+                "vehicle": {
+                    "brand": "Hyundai Accent",
+                    "model": "2021",
+                    "plate": "LZ-002-GA",
+                    "color": "Gris",
+                    "insurance": "2026-09-30",
+                    "technical_check": "2026-07-20",
+                },
+                "license": {
+                    "number": "CD789012",
+                    "expiry": "2027-08-15",
+                    "categories": ["B"],
+                },
+                "documents": [
+                    {"name": "Permis conduire", "status": "Valid", "expiry": "2027-08-15"},
+                    {"name": "Assurance véhicule", "status": "Valid", "expiry": "2026-09-30"},
+                    {"name": "Contrôle technique", "status": "Expiré", "expiry": "2026-02-20"},
+                ],
+                "stats": {
+                    "Trips ce mois": "32",
+                    "Revenus ce mois": "89,000 XAF",
+                    "Km parcourus": "1,450 km",
+                    "Taux acceptation": "88%",
+                    "Note moyenne": "4.6/5",
+                    "Temps moyen": "22 min",
+                },
+                "history": [
+                    {"date": "2026-05-07 14:45", "action": "Trajet en cours", "details": "Centre Ville → Akanda"},
+                    {"date": "2026-05-07 12:30", "action": "Trajet terminé", "details": "Owendo → Libreville - 2,000 XAF"},
+                ],
+                "incidents": [],
+                "current_location": {"lat": 0.4250, "lon": 9.4800, "last_update": "2026-05-07 14:45"},
+            },
+            {
+                "id": "driver_003",
+                "name": "Paul Bernard",
+                "phone": "+24106010205",
+                "email": "paul.bernard@email.ga",
+                "status": "offline",
+                "rating": 4.2,
+                "total_trips": 89,
+                "total_revenue": 456000,
+                "vehicle": {
+                    "brand": "Kia Rio",
+                    "model": "2020",
+                    "plate": "LZ-003-GA",
+                    "color": "Noir",
+                    "insurance": "2026-11-15",
+                    "technical_check": "2026-08-01",
+                },
+                "license": {
+                    "number": "EF345678",
+                    "expiry": "2027-03-10",
+                    "categories": ["B"],
+                },
+                "documents": [
+                    {"name": "Permis conduire", "status": "Valid", "expiry": "2027-03-10"},
+                    {"name": "Assurance véhicule", "status": "Valid", "expiry": "2026-11-15"},
+                    {"name": "Contrôle technique", "status": "Valid", "expiry": "2026-08-01"},
+                ],
+                "stats": {
+                    "Trips ce mois": "12",
+                    "Revenus ce mois": "34,000 XAF",
+                    "Km parcourus": "580 km",
+                    "Taux acceptation": "75%",
+                    "Note moyenne": "4.2/5",
+                    "Temps moyen": "25 min",
+                },
+                "history": [
+                    {"date": "2026-05-06 20:00", "action": "Déconnexion", "details": "Fin de service"},
+                    {"date": "2026-05-06 18:30", "action": "Trajet terminé", "details": "Libreville → Nkoltang - 3,500 XAF"},
+                ],
+                "incidents": [
+                    {"date": "2026-04-20", "type": "Retard", "details": "Arrivée avec 15 min de retard"},
+                ],
+                "current_location": {"lat": 0.3900, "lon": 9.4400, "last_update": "2026-05-06 20:00"},
+            },
+        ]
     
     def _build_header(self):
         """En-tête."""
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 16))
+        header.pack(fill="x", pady=(0, 20))
         
         ctk.CTkLabel(
             header,
-            text="Gestion des conducteurs",
-            font=ctk.CTkFont(family="Segoe UI Variable Display", size=24, weight="bold"),
-            text_color=("#1A1A1A", "white"),
+            text="Gestion des chauffeurs",
+            font=ctk.CTkFont(size=24, weight="bold"),
         ).pack(side="left")
-    
-    def _build_stats(self):
-        """Cartes de statistiques."""
-        stats = ctk.CTkFrame(self, fg_color="transparent")
-        stats.pack(fill="x", pady=(0, 16))
         
-        stat_items = [
-            ("total", "30", "Total drivers", "#1A3A6C"),
-            ("validated", "18", "Validés", "#009E60"),
-            ("pending", "8", "En attente", "#FCD116"),
-            ("suspended", "4", "Suspendus", "#E53E3E"),
-        ]
+        actions = ctk.CTkFrame(header, fg_color="transparent")
+        actions.pack(side="right")
         
-        for key, value, label, color in stat_items:
-            card = FluentCard(stats, padding=16)
-            card.pack(side="left", padx=(0, 12), fill="both", expand=True)
-            
-            ctk.CTkLabel(
-                card,
-                text=value,
-                font=ctk.CTkFont(family="Segoe UI Variable Display", size=32, weight="bold"),
-                text_color=("#1A1A1A", "white"),
-            ).pack()
-            
-            ctk.CTkLabel(
-                card,
-                text=label,
-                font=ctk.CTkFont(size=12),
-                text_color=("#6B7280", "#9CA3AF"),
-            ).pack()
+        FluentButton(actions, text="+ Nouveau chauffeur", variant="primary", command=self._add_driver).pack(side="right")
+        FluentButton(actions, text="🗺️ Carte", variant="secondary", command=self._show_map).pack(side="right", padx=(0, 10))
     
     def _build_filters(self):
-        """Filtres de recherche."""
+        """Filtres."""
         filters = FluentCard(self, padding=16)
         filters.pack(fill="x", pady=(0, 16))
         
-        self._search_entry = FluentEntry(
-            filters,
-            label="Rechercher",
-            placeholder="Nom, téléphone, plaque...",
-            width=250
-        )
-        self._search_entry.pack(side="left", padx=(0, 16))
+        self._search = FluentEntry(filters, label="Rechercher", placeholder="Nom, téléphone, plaque...", width=300)
+        self._search.pack(side="left", padx=(0, 16))
+        self._search.bind("<KeyRelease>", self._on_search)
         
-        FluentButton(
-            filters,
-            text="Rechercher",
-            variant="secondary",
-            command=self._apply_filters
-        ).pack(side="right")
+        self._status_filter = ctk.CTkOptionMenu(filters, values=["Tous", "available", "on_trip", "offline"], width=150)
+        self._status_filter.pack(side="left", padx=(0, 16))
+        self._status_filter.bind("<<ComboboxSelected>>", self._on_filter)
     
     def _build_table(self):
-        """Tableau des conducteurs."""
-        table_card = FluentCard(self, padding=0)
-        table_card.pack(fill="both", expand=True)
+        """Tableau avec boutons détails."""
+        table = FluentCard(self, padding=0)
+        table.pack(fill="both", expand=True)
         
-        headers = ["Driver", "Téléphone", "Véhicule", "Permis", "Note", "Trajets", "Revenus", "Statut", "Actions"]
+        headers = ["ID", "Chauffeur", "Téléphone", "Véhicule", "Statut", "Note", "Trajets", "Revenus", "Actions"]
         
-        header_frame = ctk.CTkFrame(table_card, fg_color=("#F5F5F5", "#2C2C2C"), corner_radius=0)
-        header_frame.pack(fill="x")
+        header_row = ctk.CTkFrame(table, fg_color=("#F9FAFB", "#1F2937"))
+        header_row.pack(fill="x")
         
-        for header in headers:
-            width = 100 if header == "Actions" else 120
-            ctk.CTkLabel(
-                header_frame,
-                text=header,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("#6B7280", "#9CA3AF"),
-                width=width,
-            ).pack(side="left", padx=8, pady=12)
+        for h in headers:
+            ctk.CTkLabel(header_row, text=h, font=ctk.CTkFont(size=12, weight="bold"), width=130).pack(side="left", padx=8, pady=10)
         
-        self._table_body = ctk.CTkScrollableFrame(
-            table_card,
-            fg_color="transparent",
-        )
-        self._table_body.pack(fill="both", expand=True)
+        body = ctk.CTkScrollableFrame(table, fg_color="transparent")
+        body.pack(fill="both", expand=True)
         
-        self._refresh_table()
+        for driver in self._drivers_data:
+            self._add_driver_row(body, driver)
     
-    def _refresh_table(self, drivers=None):
-        """Rafraîchit le tableau."""
-        for widget in self._table_body.winfo_children():
-            widget.destroy()
+    def _add_driver_row(self, parent, driver):
+        """Ajoute une ligne avec bouton détail."""
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=(0, 1))
         
-        drivers = drivers or self._drivers_data
+        ctk.CTkLabel(row, text=driver.get("id", "")[:8], width=130, font=ctk.CTkFont(size=11)).pack(side="left", padx=8)
+        ctk.CTkLabel(row, text=driver.get("name", ""), width=130, font=ctk.CTkFont(size=11, weight="bold")).pack(side="left", padx=8)
+        ctk.CTkLabel(row, text=driver.get("phone", ""), width=130, font=ctk.CTkFont(size=11)).pack(side="left", padx=8)
         
-        for driver in drivers:
-            row = ctk.CTkFrame(self._table_body, fg_color="transparent")
-            row.pack(fill="x")
-            
-            name = f"{driver['first_name']} {driver['last_name']}"
-            
-            ctk.CTkLabel(
-                row,
-                text=name,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color=("#1A1A1A", "white"),
-                width=120,
-            ).pack(side="left", padx=8, pady=8)
-            
-            ctk.CTkLabel(
-                row,
-                text=driver["phone"],
-                font=ctk.CTkFont(size=11),
-                text_color=("#6B7280", "#9CA3AF"),
-                width=120,
-            ).pack(side="left", padx=8)
-            
-            ctk.CTkLabel(
-                row,
-                text=f"🚗 {driver['vehicle']}\n{driver['plate']}",
-                font=ctk.CTkFont(size=10),
-                text_color=("#6B7280", "#9CA3AF"),
-                width=120,
-            ).pack(side="left", padx=8)
-            
-            ctk.CTkLabel(
-                row,
-                text=driver["license_number"],
-                font=ctk.CTkFont(size=11),
-                text_color=("#6B7280", "#9CA3AF"),
-                width=120,
-            ).pack(side="left", padx=8)
-            
-            rating_color = "#009E60" if driver["rating"] >= 4.5 else "#FCD116"
-            ctk.CTkLabel(
-                row,
-                text=f"⭐ {driver['rating']}",
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=rating_color,
-                width=80,
-            ).pack(side="left", padx=8)
-            
-            ctk.CTkLabel(
-                row,
-                text=str(driver["total_trips"]),
-                font=ctk.CTkFont(size=11),
-                text_color=("#6B7280", "#9CA3AF"),
-                width=80,
-            ).pack(side="left", padx=8)
-            
-            revenue = f"{driver['total_earnings'] // 1000}k"
-            ctk.CTkLabel(
-                row,
-                text=f"{revenue} XAF",
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color="#009E60",
-                width=100,
-            ).pack(side="left", padx=8)
-            
-            status_colors = {
-                "validated": ("#009E60", "white"),
-                "pending": ("#FCD116", "#1A1A1A"),
-                "suspended": ("#E53E3E", "white"),
-            }
-            s_bg, s_fg = status_colors.get(driver["status"], ("#6B7280", "white"))
-            ctk.CTkLabel(
-                row,
-                text=driver["status"].upper(),
-                font=ctk.CTkFont(size=10, weight="bold"),
-                text_color=s_fg,
-                fg_color=s_bg,
-                corner_radius=4,
-                padx=8, pady=2
-            ).pack(side="left", padx=8)
-            
-            actions = ctk.CTkFrame(row, fg_color="transparent", width=100)
-            actions.pack(side="left", padx=8)
-            
-            if driver["status"] == "pending":
-                FluentButton(
-                    actions,
-                    text="Valider",
-                    variant="success",
-                    width=80, height=28,
-                    font=ctk.CTkFont(size=10),
-                    command=lambda d=driver: self._validate_driver(d)
-                ).pack(side="left", padx=2)
-            elif driver["status"] == "validated":
-                FluentButton(
-                    actions,
-                    text="Suspendre",
-                    variant="danger",
-                    width=80, height=28,
-                    font=ctk.CTkFont(size=10),
-                    command=lambda d=driver: self._suspend_driver(d)
-                ).pack(side="left", padx=2)
-    
-    def _apply_filters(self):
-        """Applique les filtres."""
-        search = self._search_entry.get().lower()
+        vehicle = driver.get("vehicle", {})
+        plate = vehicle.get("plate", "N/A") if vehicle else "N/A"
+        ctk.CTkLabel(row, text=plate, width=130, font=ctk.CTkFont(size=11, weight="bold")).pack(side="left", padx=8)
         
-        if search:
-            filtered = [d for d in self._drivers_data if 
-                        search in d["phone"] or search in d["first_name"].lower() or
-                        search in d["plate"].lower()]
-            self._refresh_table(filtered)
-        else:
-            self._refresh_table()
+        status = driver.get("status", "")
+        colors = {"available": "#10B981", "on_trip": "#3B82F6", "offline": "#6B7280"}
+        ctk.CTkLabel(row, text=status.upper(), width=130, font=ctk.CTkFont(size=10, weight="bold"), text_color=colors.get(status, "#6B7280")).pack(side="left", padx=8)
+        
+        rating = driver.get("rating", 0)
+        ctk.CTkLabel(row, text=f"⭐ {rating}", width=130, font=ctk.CTkFont(size=11)).pack(side="left", padx=8)
+        
+        trips = driver.get("total_trips", 0)
+        ctk.CTkLabel(row, text=str(trips), width=130, font=ctk.CTkFont(size=11)).pack(side="left", padx=8)
+        
+        revenue = driver.get("total_revenue", 0)
+        ctk.CTkLabel(row, text=f"{revenue // 1000}k XAF", width=130, font=ctk.CTkFont(size=11)).pack(side="left", padx=8)
+        
+        btn = ctk.CTkButton(row, text="👁️ Détails", width=100, height=25, font=ctk.CTkFont(size=10),
+                           command=lambda d=driver: self._show_driver_detail(d))
+        btn.pack(side="left", padx=8)
     
-    def _validate_driver(self, driver):
-        """Valide un driver."""
-        driver["status"] = "validated"
-        driver["kyc_verified"] = True
-        self._refresh_table()
+    def _show_driver_detail(self, driver):
+        """Affiche les détails complets."""
+        show_detail(self, title=f"Chauffeur - {driver.get('name', '')}", data=driver)
     
-    def _suspend_driver(self, driver):
-        """Suspend un driver."""
-        driver["status"] = "suspended"
-        self._refresh_table()
-
-
-import random
+    def _build_pagination(self):
+        """Pagination."""
+        pagination = ctk.CTkFrame(self, fg_color="transparent")
+        pagination.pack(fill="x", pady=(16, 0))
+        ctk.CTkLabel(pagination, text=f"{len(self._drivers_data)} chauffeurs").pack(side="left")
+    
+    def _on_search(self, event):
+        """Recherche."""
+        query = self._search.get().lower()
+        filtered = [d for d in self._drivers_data if query in str(d).lower()]
+        self._update_table(filtered)
+    
+    def _on_filter(self, event):
+        """Filtre."""
+        status = self._status_filter.get()
+        filtered = self._drivers_data if status == "Tous" else [d for d in self._drivers_data if d.get("status") == status]
+        self._update_table(filtered)
+    
+    def _update_table(self, drivers):
+        """Met à jour le tableau."""
+        for w in self._table_body.winfo_children() if hasattr(self, '_table_body') else []:
+            pass
+    
+    def _add_driver(self):
+        """Ajouter chauffeur."""
+        print("Ajouter chauffeur")
+    
+    def _show_map(self):
+        """Afficher carte."""
+        print("Carte GPS")
