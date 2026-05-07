@@ -46,8 +46,8 @@ LIGHT = {
     "bg_base":          "#F3F3F3",
     "bg_layer_1":       "#FFFFFF",
     "bg_layer_2":       "#F9F9F9",
-    "bg_acrylic":       "#F0F0F0CC",
-    "bg_smoke":         "#00000033",
+    "bg_acrylic":       "#F0F0F0",
+    "bg_smoke":         "#000000",
 
     # Contenu
     "text_primary":     "#1A1A1A",
@@ -67,9 +67,9 @@ LIGHT = {
     "control_disabled": "#F3F3F3",
 
     # Sidebar (Acrylic)
-    "sidebar_bg":       "#E8EEF9CC",
-    "sidebar_item_hover":"#1A3A6C18",
-    "sidebar_item_active":"#1A3A6C22",
+    "sidebar_bg":       "#E8EEF9",
+    "sidebar_item_hover":"#1A3A6C",
+    "sidebar_item_active":"#1A3A6C",
     "sidebar_text":     "#1A3A6C",
 }
 
@@ -79,8 +79,8 @@ DARK = {
     "bg_base":          "#202020",
     "bg_layer_1":       "#2C2C2C",
     "bg_layer_2":       "#383838",
-    "bg_acrylic":       "#1F1F1FCC",
-    "bg_smoke":         "#00000066",
+    "bg_acrylic":       "#1F1F1F",
+    "bg_smoke":         "#000000",
 
     # Contenu
     "text_primary":     "#FFFFFF",
@@ -100,9 +100,9 @@ DARK = {
     "control_disabled": "#272727",
 
     # Sidebar
-    "sidebar_bg":       "#1A2844CC",
-    "sidebar_item_hover":"#FFFFFF12",
-    "sidebar_item_active":"#FFFFFF1E",
+    "sidebar_bg":       "#1A2844",
+    "sidebar_item_hover":"#FFFFFF",
+    "sidebar_item_active":"#FFFFFF",
     "sidebar_text":     "#A8C4E8",
 }
 

@@ -1,228 +1,422 @@
 # ============================================================
 # Module Vue d'ensemble — Dashboard principal
 # Fichier : desktop_admin/windows/modules/overview_module.py
-# Description : KPIs temps réel, graphiques, activité récente
+# Description : KPIs temps reel, graphiques, activite recente
 # ============================================================
 
 import customtkinter as ctk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
 from desktop_admin.theme.components import KPICard, FluentCard, FluentButton
+from desktop_admin.windows.theme.ui_theme import UITheme, get_palette, font, title_font, body_font
+from datetime import datetime, timedelta
+import random
 
 
 class OverviewModule(ctk.CTkFrame):
-    """Module tableau de bord principal — Vue d'ensemble MobiTranz.
+    """Module tableau de bord principal — Vue d'ensemble MobiTranz."""
     
-    Sections :
-    1. KPIs en temps réel (4 cartes en ligne)
-    2. Graphique trajets de la semaine (matplotlib)
-    3. Carte activité + Tableau activité récente
-    """
-    
-    def __init__(self, master, user_data=None, **kwargs):
+    def __init__(self, master, user_data=None, dashboard=None, **kwargs):
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)
         
         self._user_data = user_data or {}
-        self._refresh_interval = 30000
+        self._dashboard = dashboard
+        self._pal = get_palette()
         
         self._build_header()
+        self._build_stats_cards()
         self._build_kpi_row()
         self._build_charts_row()
         self._build_recent_activity()
+        self._build_quick_actions()
         
-        self._schedule_refresh()
+        UITheme.set_mode("Dark")
+    
+    def _get_colors(self):
+        """Get current theme colors."""
+        return get_palette()
     
     def _build_header(self):
-        """En-tête avec date et bouton refresh."""
+        pal = self._get_colors()
         header = ctk.CTkFrame(self, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 16))
-        header.grid_columnconfigure(1, weight=1)
+        header.pack(fill="x", pady=(0, 20))
         
-        from datetime import datetime
         hour = datetime.now().hour
-        greeting = "Bonjour" if 5 <= hour < 12 else "Bon après-midi" if 12 <= hour < 18 else "Bonsoir"
+        greeting = "Bonjour" if 5 <= hour < 12 else "Bon apres-midi" if 12 <= hour < 18 else "Bonsoir"
         email = self._user_data.get("email", "Admin")
         
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
+        title_frame.pack(side="left")
+        
         ctk.CTkLabel(
-            header,
-            text=f"{greeting}, {email.split('@')[0].capitalize()} 👋",
-            font=ctk.CTkFont(family="Segoe UI Variable Display", size=22, weight="bold"),
-            text_color=("#1A1A1A", "white"),
-            anchor="w"
-        ).pack(side="left")
+            title_frame,
+            text=f"{greeting}, {email.split('@')[0].capitalize()} !",
+            font=title_font(28),
+            text_color=pal["primary"],
+        ).pack(anchor="w")
+        
+        ctk.CTkLabel(
+            title_frame,
+            text=f"Voici l'activite de MobiTranz en temps reel — {datetime.now().strftime('%d/%m/%Y')}",
+            font=body_font(13),
+            text_color=pal["text_secondary"],
+        ).pack(anchor="w", pady=(4, 0))
         
         right_frame = ctk.CTkFrame(header, fg_color="transparent")
         right_frame.pack(side="right")
         
-        self._last_update_label = ctk.CTkLabel(
+        ctk.CTkLabel(
             right_frame,
-            text=f"Mis à jour : {datetime.now().strftime('%H:%M:%S')}",
-            font=ctk.CTkFont(size=12),
-            text_color=("#9A9A9A", "#6D6D6D"),
-        )
-        self._last_update_label.pack(side="left", padx=(0, 12))
+            text=f"🕐 {datetime.now().strftime('%H:%M:%S')}",
+            font=body_font(12),
+            text_color=pal["text_muted"],
+        ).pack(side="left", padx=12)
         
-        FluentButton(
-            right_frame, text="↻  Actualiser",
-            variant="secondary", height=36,
-            command=self._refresh_data
-        ).pack(side="left")
+        self._refresh_btn = ctk.CTkButton(
+            right_frame, text="🔄 Actualiser",
+            fg_color=pal["primary"], hover_color=pal["primary_hover"],
+            text_color="white", height=36,
+            font=body_font(13), command=self._refresh_data
+        )
+        self._refresh_btn.pack(side="left")
+    
+    def _refresh_data(self):
+        """Refresh all data."""
+        self._pal = get_palette()
+        for widget in self.winfo_children():
+            widget.destroy()
+        self._build_header()
+        self._build_stats_cards()
+        self._build_kpi_row()
+        self._build_charts_row()
+        self._build_recent_activity()
+        self._build_quick_actions()
+    
+    def _build_stats_cards(self):
+        pal = self._get_colors()
+        stats_frame = ctk.CTkFrame(self, fg_color="transparent")
+        stats_frame.pack(fill="x", pady=(0, 16))
+        
+        for i in range(4):
+            stats_frame.grid_columnconfigure(i, weight=1)
+        
+        stats = [
+            ("🚗", "Vehicules actifs", f"{random.randint(120, 150)}", "98% en service"),
+            ("👨‍✈️", "Conducteurs", f"{random.randint(200, 280)}", f"{random.randint(85, 95)}% disponibles"),
+            ("📱", "Utilisateurs", f"{random.randint(5000, 15000)}", f"+{random.randint(50, 200)} aujourd'hui"),
+            ("💳", "Transactions", f"{random.randint(800, 1500)}", f"{random.randint(95, 99)}% reussies"),
+        ]
+        
+        for i, (icon, title, value, subtitle) in enumerate(stats):
+            card = ctk.CTkFrame(
+                stats_frame,
+                fg_color=pal["card_bg"],
+                border_color=pal["card_border"],
+                border_width=1,
+                corner_radius=12
+            )
+            card.grid(row=0, column=i, sticky="ew", padx=8)
+            
+            ctk.CTkLabel(card, text=icon, font=ctk.CTkFont(size=24)).pack(pady=(16, 8))
+            
+            ctk.CTkLabel(
+                card, text=title,
+                font=body_font(12),
+                text_color=pal["text_secondary"],
+            ).pack()
+            
+            ctk.CTkLabel(
+                card, text=value,
+                font=title_font(24),
+                text_color=pal["primary"],
+            ).pack()
+            
+            ctk.CTkLabel(
+                card, text=subtitle,
+                font=body_font(11),
+                text_color=pal["success"],
+            ).pack(pady=(0, 16))
     
     def _build_kpi_row(self):
-        """Grille 4 KPIs."""
+        pal = self._get_colors()
         kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
         kpi_frame.pack(fill="x", pady=(0, 16))
         
         for i in range(4):
-            kpi_frame.grid_columnconfigure(i, weight=1, uniform="kpi")
+            kpi_frame.grid_columnconfigure(i, weight=1)
         
         kpis = [
-            ("🚗", "Trajets actifs",    "127",      "+12",  "#1A3A6C", 12),
-            ("💰", "Revenus du jour",   "2,840,500","XAF",  "#009E60", 8),
-            ("👥", "Utilisateurs",      "15,234",   "+47",  "#FCD116", 47),
-            ("🚨", "Incidents ouverts", "3",        None,   "#E53E3E", None),
+            ("🚗", "Trajets aujourd'hui", f"{random.randint(800, 1200)}", "+12%", pal["primary"]),
+            ("💰", "Revenus du jour", f"{random.randint(2000000, 3500000):,} XAF", f"+{random.randint(8, 25)}%", pal["success"]),
+            ("⭐", "Note moyenne", f"{random.uniform(4.2, 4.8):.1f}/5", "+0.2", pal["accent_yellow"]),
+            ("🚨", "Incidents", f"{random.randint(0, 8)}", f"{random.randint(-50, -10)}%", pal["danger"]),
         ]
         
-        for i, (icon, title, value, trend_or_unit, color, trend_val) in enumerate(kpis):
-            card = KPICard(
+        for i, (icon, title, value, trend, color) in enumerate(kpis):
+            card = ctk.CTkFrame(
                 kpi_frame,
-                icon=icon, title=title, value=value,
-                unit=trend_or_unit if trend_val is None and not isinstance(trend_or_unit, int) else "",
-                trend=trend_val,
-                accent_color=color,
+                fg_color=pal["card_bg"],
+                border_color=pal["card_border"],
+                border_width=1,
+                corner_radius=12,
             )
-            card.grid(row=0, column=i, sticky="ew", padx=(0, 12 if i < 3 else 0))
+            card.grid(row=0, column=i, sticky="ew", padx=8)
+            card.configure(cursor="hand2")
+            
+            icon_label = ctk.CTkLabel(card, text=icon, font=ctk.CTkFont(size=20))
+            icon_label.pack(pady=(16, 8))
+            
+            ctk.CTkLabel(
+                card, text=title,
+                font=body_font(12),
+                text_color=pal["text_secondary"],
+            ).pack()
+            
+            ctk.CTkLabel(
+                card, text=value,
+                font=title_font(20),
+                text_color=pal["text"],
+            ).pack()
+            
+            ctk.CTkLabel(
+                card, text=f"📈 {trend}",
+                font=body_font(11),
+                text_color=color,
+            ).pack(pady=(0, 16))
     
     def _build_charts_row(self):
-        """Ligne graphiques."""
+        pal = self._get_colors()
         charts_row = ctk.CTkFrame(self, fg_color="transparent")
         charts_row.pack(fill="x", pady=(0, 16))
-        charts_row.grid_columnconfigure(0, weight=6)
-        charts_row.grid_columnconfigure(1, weight=4)
+        charts_row.grid_columnconfigure(0, weight=2)
+        charts_row.grid_columnconfigure(1, weight=1)
         
-        # Graphique linéaire
-        line_card = FluentCard(charts_row, title="Trajets des 7 derniers jours")
-        line_card.grid(row=0, column=0, sticky="ew", padx=(0, 12))
-        
-        fig = Figure(figsize=(6, 3), facecolor="none")
-        ax = fig.add_subplot(111)
-        
-        try:
-            is_dark = ctk.get_appearance_mode() == "Dark"
-        except Exception:
-            is_dark = False
-        text_color = "#FFFFFF" if is_dark else "#1A1A1A"
-        grid_color = "#3D3D3D" if is_dark else "#E5E5E5"
-        
-        ax.set_facecolor("none")
-        fig.patch.set_alpha(0)
-        
-        jours = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
-        trajets = [1820, 2150, 1980, 2380, 2640, 3100, 2890]
-        
-        ax.plot(jours, trajets, color="#1A3A6C", linewidth=2.5, marker="o",
-                markersize=6, markerfacecolor="white", markeredgewidth=2)
-        ax.fill_between(range(len(jours)), trajets, alpha=0.08, color="#1A3A6C")
-        ax.set_xticks(range(len(jours)))
-        ax.set_xticklabels(jours, color=text_color, fontsize=11)
-        ax.tick_params(axis='y', colors=text_color, labelsize=11)
-        ax.spines[:].set_visible(False)
-        ax.grid(axis="y", color=grid_color, linewidth=0.5)
-        ax.margins(x=0.02)
-        
-        canvas = FigureCanvasTkAgg(fig, master=line_card)
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=20, pady=(8, 20))
-        canvas.draw()
-        
-        # Donut
-        donut_card = FluentCard(charts_row, title="Modes de paiement")
-        donut_card.grid(row=0, column=1, sticky="ew")
-        
-        fig2 = Figure(figsize=(4, 3), facecolor="none")
-        ax2 = fig2.add_subplot(111)
-        ax2.set_facecolor("none")
-        fig2.patch.set_alpha(0)
-        
-        import mpatches as mpatches_lib
-        sizes = [45, 35, 20]
-        labels = ["MoovMoney", "Airtel Money", "Carte bancaire"]
-        colors = ["#1A3A6C", "#009E60", "#FCD116"]
-        
-        wedges, texts, autotexts = ax2.pie(
-            sizes, labels=None, colors=colors,
-            autopct="%1.0f%%", startangle=90,
-            wedgeprops=dict(width=0.6, edgecolor="none"),
-            pctdistance=0.75
+        card1 = ctk.CTkFrame(
+            charts_row,
+            fg_color=pal["card_bg"],
+            border_color=pal["card_border"],
+            border_width=1,
+            corner_radius=12,
         )
-        for t in autotexts:
-            t.set_color(text_color)
-            t.set_fontsize(10)
+        card1.grid(row=0, column=0, sticky="ew", padx=(0, 12))
         
-        patches = [mpatches_lib.Patch(color=c, label=l) for c, l in zip(colors, labels)]
-        ax2.legend(handles=patches, loc="lower center", fontsize=9,
-                   labelcolor=text_color, framealpha=0, ncol=1,
-                   bbox_to_anchor=(0.5, -0.15))
+        ctk.CTkLabel(
+            card1, text="📊 Trajets cette semaine",
+            font=title_font(16),
+            text_color=pal["text"],
+        ).pack(anchor="w", padx=20, pady=16)
         
-        canvas2 = FigureCanvasTkAgg(fig2, master=donut_card)
-        canvas2.get_tk_widget().pack(fill="both", expand=True, padx=20, pady=(8, 20))
-        canvas2.draw()
-    
-    def _build_recent_activity(self):
-        """Tableau d'activité récente."""
-        activity_card = FluentCard(self, title="Activité récente")
-        activity_card.pack(fill="x", pady=(0, 16))
+        days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+        values = [random.randint(500, 1500) for _ in range(7)]
+        max_val = max(values)
         
-        headers = ["Heure", "Événement", "Utilisateur", "Montant", "Statut"]
-        rows = [
-            ["14:32", "Paiement confirmé", "Client #4821", "1,500 XAF", "✅ Succès"],
-            ["14:30", "Incident SOS", "Trip #9832",  "—",         "🚨 Ouvert"],
-            ["14:28", "Nouveau conducteur", "Thomas M.", "—",      "⏳ En attente"],
-            ["14:25", "Paiement confirmé", "Client #4819", "800 XAF",  "✅ Succès"],
-            ["14:21", "Trajet terminé",    "Trip #9831",  "2,000 XAF", "✅ Terminé"],
+        chart_frame = ctk.CTkFrame(card1, fg_color="transparent")
+        chart_frame.pack(fill="both", expand=True, padx=20, pady=(0, 16))
+        
+        bar_w = 0.6
+        spacing = (1 - bar_w) / (len(days) + 1)
+        
+        for i, (day, val) in enumerate(zip(days, values)):
+            x = spacing + i * (bar_w + spacing)
+            h_pct = val / max_val
+            
+            bar_frameInner = ctk.CTkFrame(chart_frame, fg_color="transparent")
+            bar_frameInner.place(relx=x, rely=0.9, relwidth=bar_w, relheight=0.8, anchor="sw")
+            
+            bar = ctk.CTkFrame(
+                bar_frameInner,
+                fg_color=pal["primary"],
+                corner_radius=4
+            )
+            bar.pack(fill="y", pady=(0, 4))
+            bar.pack_propagate(False)
+            bar.configure(height=int(200 * h_pct))
+            
+            ctk.CTkLabel(
+                bar_frameInner, text=f"{val}",
+                font=body_font(10, weight="bold"),
+                text_color=pal["primary"],
+            ).pack(pady=(0, 4))
+            
+            ctk.CTkLabel(
+                chart_frame, text=day,
+                font=body_font(10),
+                text_color=pal["text_secondary"],
+            ).place(relx=x + bar_w/2, rely=1.0, anchor="s")
+        
+        card2 = ctk.CTkFrame(
+            charts_row,
+            fg_color=pal["card_bg"],
+            border_color=pal["card_border"],
+            border_width=1,
+            corner_radius=12,
+        )
+        card2.grid(row=0, column=1, sticky="ew")
+        
+        ctk.CTkLabel(
+            card2, text="💳 Repartition paiements",
+            font=title_font(16),
+            text_color=pal["text"],
+        ).pack(anchor="w", padx=20, pady=16)
+        
+        payment_data = [
+            ("MoovMoney", 45, "#1A3A6C"),
+            ("Airtel", 35, "#10B981"),
+            ("Carte", 20, "#FCD116"),
         ]
         
-        table_frame = ctk.CTkFrame(activity_card, fg_color="transparent")
-        table_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        col_weights = [1, 3, 2, 2, 1]
-        for i in range(5):
-            table_frame.grid_columnconfigure(i, weight=col_weights[i])
-        
-        for j, header in enumerate(headers):
+        for name, pct, color in payment_data:
+            row = ctk.CTkFrame(card2, fg_color="transparent")
+            row.pack(fill="x", padx=20, pady=8)
+            
             ctk.CTkLabel(
-                table_frame, text=header,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                text_color=("#9A9A9A", "#6D6D6D"),
-                anchor="w"
-            ).grid(row=0, column=j, sticky="ew", padx=8, pady=(0, 8))
-        
-        ctk.CTkFrame(table_frame, height=1, fg_color=("#E5E5E5", "#3D3D3D")).grid(
-            row=1, column=0, columnspan=5, sticky="ew", pady=(0, 8)
+                row, text=name,
+                font=body_font(12),
+                text_color=pal["text"],
+            ).pack(side="left")
+            
+            bar_bg = ctk.CTkFrame(
+                row,
+                fg_color=pal["input_bg"],
+                height=8,
+                corner_radius=4
+            )
+            bar_bg.pack(side="left", fill="x", expand=True, padx=12)
+            bar_bg.pack_propagate(False)
+            
+            bar = ctk.CTkFrame(bar_bg, fg_color=color, height=8, corner_radius=4)
+            bar.pack(side="left", ipadx=int(pct * 3))
+            
+            ctk.CTkLabel(
+                row, text=f"{pct}%",
+                font=body_font(12, weight="bold"),
+                text_color=color
+            ).pack(side="right")
+    
+    def _build_recent_activity(self):
+        pal = self._get_colors()
+        activity_card = ctk.CTkFrame(
+            self,
+            fg_color=pal["card_bg"],
+            border_color=pal["card_border"],
+            border_width=1,
+            corner_radius=12,
         )
+        activity_card.pack(fill="x", pady=(0, 16))
         
-        for i, row in enumerate(rows):
-            bg = ("white", "#2C2C2C") if i % 2 == 0 else ("#F9F9F9", "#333333")
-            row_frame = ctk.CTkFrame(table_frame, fg_color=bg, corner_radius=8)
-            row_frame.grid(row=i+2, column=0, columnspan=5, sticky="ew", pady=2)
+        ctk.CTkLabel(
+            activity_card, text="⚡ Activite recente",
+            font=title_font(16),
+            text_color=pal["text"],
+        ).pack(anchor="w", padx=20, pady=16)
+        
+        headers = ["Heure", "Type", "Description", "Montant", "Statut"]
+        
+        header_frame = ctk.CTkFrame(activity_card, fg_color=pal["input_bg"], corner_radius=8)
+        header_frame.pack(fill="x", padx=20, pady=(0, 8))
+        
+        for h in headers:
+            ctk.CTkLabel(
+                header_frame, text=h,
+                font=body_font(11, weight="bold"),
+                text_color=pal["text_secondary"],
+            ).pack(side="left", padx=8, pady=8)
+        
+        activities = [
+            ("14:32", "Paiement", "Trajet #4821 - Owendo -> PK12", "1,500 XAF", "✅ Succes"),
+            ("14:28", "Inscription", "Nouveau client +24107 XXX XX XX", "—", "✅ Valide"),
+            ("14:15", "Incident", "SOS - Trajet #4819", "—", "🚨 En cours"),
+            ("13:45", "Paiement", "Trajet #4818 - Libreville Centre", "2,000 XAF", "✅ Succes"),
+            ("13:22", "Vehicule", "AA-002-BK - Mise a jour position", "—", "✅ OK"),
+            ("12:58", "Conducteur", "Validation KYC - Jean M.", "—", "⏳ En attente"),
+        ]
+        
+        for i, (heure, type_, desc, montant, statut) in enumerate(activities):
+            row = ctk.CTkFrame(
+                activity_card,
+                fg_color=pal["surface_hover"] if i % 2 == 0 else pal["surface"],
+                corner_radius=8
+            )
+            row.pack(fill="x", padx=20, pady=4)
             
-            for j in range(5):
-                row_frame.grid_columnconfigure(j, weight=col_weights[j])
+            ctk.CTkLabel(
+                row, text=heure,
+                font=body_font(11),
+                text_color=pal["text_muted"],
+                width=60
+            ).pack(side="left", padx=8, pady=12)
             
-            for j, cell in enumerate(row):
-                ctk.CTkLabel(
-                    row_frame, text=cell,
-                    font=ctk.CTkFont(size=12),
-                    text_color=("#374151", "#D1D5DB"),
-                    anchor="w"
-                ).grid(row=0, column=j, sticky="ew", padx=16, pady=10)
+            status_color = {
+                "Paiement": pal["primary"],
+                "Inscription": pal["success"],
+                "Incident": pal["danger"],
+                "Vehicule": pal["accent_yellow"],
+                "Conducteur": pal["accent_purple"]
+            }
+            ctk.CTkLabel(
+                row, text=type_,
+                font=body_font(11, weight="bold"),
+                text_color=(status_color.get(type_, pal["text_secondary"]), pal["text_secondary"]),
+                width=100
+            ).pack(side="left", padx=8)
+            
+            ctk.CTkLabel(
+                row, text=desc,
+                font=body_font(11),
+                text_color=pal["text"],
+            ).pack(side="left", padx=8, fill="x", expand=True)
+            
+            ctk.CTkLabel(
+                row, text=montant,
+                font=body_font(11),
+                text_color=pal["success"],
+                width=100
+            ).pack(side="left", padx=8)
+            
+            stat_ok = "Succes" in statut or "Valide" in statut or "OK" in statut
+            ctk.CTkLabel(
+                row, text=statut,
+                font=body_font(11),
+                text_color=pal["success"] if stat_ok else pal["danger"],
+            ).pack(side="left", padx=8)
     
-    def _refresh_data(self):
-        """Rafraîchit les données."""
-        from datetime import datetime
-        self._last_update_label.configure(text=f"Mis à jour : {datetime.now().strftime('%H:%M:%S')}")
+    def _build_quick_actions(self):
+        pal = self._get_colors()
+        actions_card = ctk.CTkFrame(
+            self,
+            fg_color=pal["card_bg"],
+            border_color=pal["card_border"],
+            border_width=1,
+            corner_radius=12,
+        )
+        actions_card.pack(fill="x")
+        
+        ctk.CTkLabel(
+            actions_card, text="⚡ Actions rapides",
+            font=title_font(16),
+            text_color=pal["text"],
+        ).pack(anchor="w", padx=20, pady=16)
+        
+        actions_frame = ctk.CTkFrame(actions_card, fg_color="transparent")
+        actions_frame.pack(fill="x", padx=20, pady=(0, 16))
+        
+        actions = [
+            ("➕", "Nouveau client", pal["success"]),
+            ("🚗", "Ajouter conducteur", pal["primary"]),
+            ("📊", "Generer rapport", pal["accent_purple"]),
+            ("🔔", "Notifications", pal["accent_yellow"]),
+            ("⚙️", "Parametres", pal["text_secondary"]),
+        ]
+        
+        for icon, label, color in actions:
+            btn = ctk.CTkButton(
+                actions_frame,
+                text=f"{icon} {label}",
+                fg_color=color, hover_color=color,
+                height=40,
+                font=body_font(13),
+                command=lambda l=label: self._quick_action(l)
+            )
+            btn.pack(side="left", padx=8, fill="x", expand=True)
     
-    def _schedule_refresh(self):
-        """Programme le rafraîchissement automatique."""
-        self._refresh_data()
-        self.after(self._refresh_interval, self._schedule_refresh)
+    def _quick_action(self, action):
+        print(f"Quick action: {action}")

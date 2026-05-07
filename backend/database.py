@@ -1,24 +1,19 @@
 # ============================================================
 # Configuration Base de Données MobiTranz
 # Fichier : backend/database.py
-# Description : Connexion PostgreSQL avec SQLAlchemy async
+# Description : Connexion SQLite avec SQLAlchemy (compatible dev local)
 # ============================================================
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import create_engine
 from backend.config import settings
 
 
-# Création du moteur de base de données async
+# Création du moteur de base de données (SQLite pour dev local)
 engine = create_async_engine(
-    settings.database_url,
+    "sqlite+aiosqlite:///./mobitranz.db",
     echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
 )
-
 
 # Fabricant de sessions async
 AsyncSessionLocal = async_sessionmaker(
@@ -29,22 +24,15 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+# Alias pour les scripts
+async_session = AsyncSessionLocal
 
 # Base pour les modèles SQLAlchemy
 Base = declarative_base()
 
 
 async def get_db():
-    """Générateur de session de base de données async.
-    
-    Utilisation :
-        @router.get("/users")
-        async def get_users(db: AsyncSession = Depends(get_db)):
-            ...
-    
-    Yields:
-        AsyncSession: Session de base de données
-    """
+    """Générateur de session de base de données."""
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -57,19 +45,12 @@ async def get_db():
 
 
 async def init_db():
-    """Initialise la base de données.
-    
-    Crée toutes les tables si elles n'existent pas.
-    À appeler au démarrage de l'application.
-    """
+    """Initialise la base de données - crée toutes les tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def drop_db():
-    """Supprime toutes les tables de la base de données.
-    
-    À utiliser avec précaution en environnement de développement.
-    """
+    """Supprime toutes les tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

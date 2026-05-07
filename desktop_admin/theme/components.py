@@ -72,7 +72,7 @@ class FluentButton(ctk.CTkButton):
     VARIANTS = {
         "primary":   {"fg_color": ("#1A3A6C", "#3B5EA8"), "hover_color": ("#142E57", "#2E5CB8"), "text_color": "white"},
         "secondary": {"fg_color": ("white", "#3D3D3D"), "hover_color": ("#F5F5F5", "#4A4A4A"), "text_color": ("#1A1A1A", "white"), "border_width": 1, "border_color": ("#E5E5E5", "#5A5A5A")},
-        "ghost":     {"fg_color": "transparent", "hover_color": ("#F0F0F0", "#FFFFFF1A"), "text_color": ("#1A3A6C", "#A8C4E8")},
+        "ghost":     {"fg_color": "transparent", "hover_color": ("#F0F0F0", "#FFFFFF"), "text_color": ("#1A3A6C", "#A8C4E8")},
         "danger":    {"fg_color": ("#E53E3E", "#C53030"), "hover_color": ("#C53030", "#9B2C2C"), "text_color": "white"},
         "success":   {"fg_color": ("#009E60", "#007A4A"), "hover_color": ("#007A4A", "#006B41"), "text_color": "white"},
         "warning":   {"fg_color": ("#FCD116", "#E6BC00"), "hover_color": ("#E6BC00", "#C9A400"), "text_color": "#1A1A1A"},
@@ -257,7 +257,7 @@ class KPICard(ctk.CTkFrame):
             text=icon,
             font=ctk.CTkFont(size=20),
             width=44, height=44,
-            fg_color=(f"{accent}15", f"{accent}30"),
+            fg_color=accent,
             corner_radius=12,
         )
         icon_badge.pack(side="left")
@@ -344,7 +344,7 @@ class FluentSidebar(ctk.CTkFrame):
     """
     
     def __init__(self, master, items=None, logo_text="MobiTranz", collapsed=False, **kwargs):
-        kwargs.setdefault("fg_color", ("#E8EEF9CC", "#1A2844CC"))
+        kwargs.setdefault("fg_color", ("#E8EEF9", "#1A2844"))
         kwargs.setdefault("corner_radius", 0)
         kwargs.setdefault("border_width", 0)
         super().__init__(master, **kwargs)
@@ -367,7 +367,7 @@ class FluentSidebar(ctk.CTkFrame):
             width=40, height=40,
             corner_radius=8,
             fg_color="transparent",
-            hover_color=("#1A3A6C22", "#FFFFFF1A"),
+            hover_color=("#1A3A6C", "#FFFFFF"),
             font=ctk.CTkFont(size=18),
             text_color=("#1A3A6C", "#A8C4E8"),
             command=self._toggle_collapse
@@ -406,7 +406,7 @@ class FluentSidebar(ctk.CTkFrame):
             height=44,
             corner_radius=10,
             fg_color="transparent",
-            hover_color=("#1A3A6C22", "#FFFFFF12"),
+            hover_color=("#1A3A6C", "#FFFFFF"),
             font=ctk.CTkFont(family="Segoe UI Variable Text", size=14),
             text_color=("#1A3A6C", "#A8C4E8"),
             command=lambda l=label, c=callback: self._on_item_click(l, c)
@@ -424,7 +424,7 @@ class FluentSidebar(ctk.CTkFrame):
         
         for btn in self._buttons:
             if btn.label_text == label:
-                btn.configure(fg_color=("#1A3A6C22", "#FFFFFF1E"))
+                btn.configure(fg_color=("#1A3A6C", "#FFFFFF"))
                 self._active_item = label
         
         if callback:

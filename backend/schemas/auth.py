@@ -34,10 +34,10 @@ class UserRegister(BaseModel):
         min_length=10,
         max_length=20
     )
-    email: Optional[str] = Field(
+email: Optional[str] = Field(
         None,
         description="Adresse email",
-        regex=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     )
     password: str = Field(
         ...,

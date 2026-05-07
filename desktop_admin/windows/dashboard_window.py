@@ -134,11 +134,27 @@ class MainWindow(ctk.CTkFrame):
         for widget in self._content_frame.winfo_children():
             widget.destroy()
         
+        module_map = {
+            "overview": "OverviewModule",
+            "users": "UsersModule",
+            "drivers": "DriversModule", 
+            "vehicles": "VehiclesModule",
+            "trips": "TripsModule",
+            "transactions": "TransactionsModule",
+            "incidents": "IncidentsModule",
+            "recordings": "RecordingsModule",
+            "reports": "ReportsModule",
+            "settings": "SettingsModule",
+            "audit": "AuditModule",
+        }
+        
+        class_name = module_map.get(module_name, f"{module_name.capitalize()}Module")
+        
         try:
             import importlib
             mod = importlib.import_module(f"desktop_admin.windows.modules.{module_name}_module")
-            ModuleClass = getattr(mod, f"{module_name.capitalize()}Module")
-            module_widget = ModuleClass(self._content_frame, user_data=self._user_data)
+            ModuleClass = getattr(mod, class_name)
+            module_widget = ModuleClass(self._content_frame, dashboard=self, user_data=self._user_data)
             module_widget.pack(fill="both", expand=True, padx=24, pady=24)
         except (ImportError, AttributeError):
             self._render_placeholder(module_name)
@@ -159,3 +175,8 @@ class MainWindow(ctk.CTkFrame):
             font=ctk.CTkFont(family="Segoe UI Variable Display", size=20, weight="bold"),
             text_color=("#5C5C5C", "#ABABAB"),
         ).pack(pady=8)
+    
+    def set_module_title(self, title: str):
+        """Met à jour le titre du module dans la topbar."""
+        if hasattr(self, '_topbar_title'):
+            self._topbar_title.configure(text=title)
