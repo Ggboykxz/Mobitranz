@@ -80,7 +80,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install -r backend/requirements.txt
+          pip install -r requirements/requirements-backend.txt
           pip install pytest pytest-asyncio pytest-cov httpx pytest-timeout
       
       - name: Wait for services
