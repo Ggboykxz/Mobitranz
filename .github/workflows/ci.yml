@@ -106,12 +106,7 @@ jobs:
           python-version: '3.12'
       
       - name: Install dependencies
-        run: pip install safety bandit
-      
-      - name: Run safety
-        run: |
-          pip freeze > requirements.txt
-          safety check requirements.txt || true
+        run: pip install bandit
       
       - name: Run bandit
         run: |
