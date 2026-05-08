@@ -16,7 +16,7 @@ from backend.models.audit_log import AuditLog
 
 __all__ = [
     "User",
-    "Driver", 
+    "Driver",
     "Vehicle",
     "Trip",
     "Payment",

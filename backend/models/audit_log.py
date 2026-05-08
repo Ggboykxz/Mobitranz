@@ -14,6 +14,7 @@ from backend.database import Base
 
 class AuditAction(enum.Enum):
     """Actions critiques journalisées."""
+
     LOGIN = "login"
     LOGOUT = "logout"
     PAYMENT_INITIATED = "payment_initiated"
@@ -34,56 +35,36 @@ class AuditAction(enum.Enum):
 
 class AuditLog(Base):
     """Modèle du journal d'audit MobiTranz.
-    
+
     Table append-only avec hash chain pour intégrité.
     Chaque action critique génère une entrée auditoría.
     """
-    
+
     __tablename__ = "audit_logs"
-    
-    id = Column(
-        String(36),
-        primary_key=True,
-        default=lambda: str(uuid.uuid4())
-    )
-    user_id = Column(
-        String(36),
-        ForeignKey("users.id"),
-        nullable=True,
-        index=True
-    )
-    
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+
     # Action et hash chain
-    action = Column(
-        Enum(AuditAction),
-        nullable=False
-    )
-    previous_hash = Column(
-        String(64),
-        nullable=False
-    )
-    current_hash = Column(
-        String(64),
-        nullable=False
-    )
-    
+    action = Column(Enum(AuditAction), nullable=False)
+    previous_hash = Column(String(64), nullable=False)
+    current_hash = Column(String(64), nullable=False)
+
     # Données de l'action (JSON)
     details = Column(Text, nullable=True)
-    
+
     # Meta contexte
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(500), nullable=True)
-    
+
     # Métadonnées
     created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    
+
     # Relations
     user = relationship("User", back_populates="audit_logs")
-    
+
     def __repr__(self):
         """Représentation textuelle de l'entrée d'audit."""
         return f"<AuditLog {self.id[:8]} {self.action.value}>"

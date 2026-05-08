@@ -11,7 +11,7 @@ from datetime import datetime
 
 class TripCreate(BaseModel):
     """Schéma pour créer un trajet."""
-    
+
     driver_id: str = Field(..., description="ID du conducteur")
     vehicle_id: str = Field(..., description="ID du véhicule")
     origin_label: str = Field(..., description="Libellé du point de départ")
@@ -26,7 +26,7 @@ class TripCreate(BaseModel):
 
 class TripUpdate(BaseModel):
     """Schéma pour mettre à jour un trajet."""
-    
+
     status: Optional[str] = None
     dest_lat: Optional[float] = None
     dest_lon: Optional[float] = None
@@ -34,7 +34,7 @@ class TripUpdate(BaseModel):
 
 class TripResponse(BaseModel):
     """Schéma pour la réponse trajet."""
-    
+
     id: str
     driver_id: str
     vehicle_id: str
@@ -49,14 +49,14 @@ class TripResponse(BaseModel):
     payment_at: Optional[datetime]
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 
 
 class VoiceProposalSubmit(BaseModel):
     """Schéma pour soumettre une proposition vocale."""
-    
+
     driver_id: str = Field(..., description="ID du conducteur")
     origin_label: str = Field(..., description="Zone de départ")
     dest_label: str = Field(..., description="Zone de destination")
@@ -65,13 +65,13 @@ class VoiceProposalSubmit(BaseModel):
 
 class HornValidation(BaseModel):
     """Schéma pour la validation klaxon."""
-    
+
     trip_id: str = Field(..., description="ID du trajet")
     pattern: str = Field(..., description="Pattern détecté (accept/refuse)")
 
 
 class TripLocationUpdate(BaseModel):
     """Schéma pour mettre à jour la localisation."""
-    
+
     lat: float = Field(..., description="Latitude")
     lon: float = Field(..., description="Longitude")

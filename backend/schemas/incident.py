@@ -11,7 +11,7 @@ from datetime import datetime
 
 class IncidentCreate(BaseModel):
     """Schéma pour créer un incident."""
-    
+
     trip_id: str = Field(..., description="ID du trajet")
     reporter_id: str = Field(..., description="ID du reporter")
     incident_type: str = Field(..., description="Type d'incident")
@@ -23,7 +23,7 @@ class IncidentCreate(BaseModel):
 
 class IncidentResponse(BaseModel):
     """Schéma pour la réponse incident."""
-    
+
     id: str
     trip_id: str
     reporter_id: str
@@ -36,19 +36,19 @@ class IncidentResponse(BaseModel):
     resolved_at: Optional[datetime]
     resolution: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 
 class IncidentEscalate(BaseModel):
     """Schéma pour escalader un incident."""
-    
+
     escalate_to: str = Field(..., description="Destination de l'escalade")
     reason: Optional[str] = Field(None, description="Raison")
 
 
 class IncidentResolve(BaseModel):
     """Schéma pour résoudre un incident."""
-    
+
     resolution: str = Field(..., description="Résolution appliquée")

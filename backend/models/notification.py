@@ -19,12 +19,12 @@ def utc_now():
 
 class Notification(Base):
     """Modèle Notification.
-    
+
     Stocke l'historique des notifications push envoyées.
     """
-    
+
     __tablename__ = "notifications"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     title = Column(String(200), nullable=False)
@@ -36,10 +36,10 @@ class Notification(Base):
     is_read = Column(Boolean, default=False, nullable=False)
     fcm_message_id = Column(String(200), nullable=True)
     error = Column(Text, nullable=True)
-    
+
     def mark_read(self):
         self.is_read = True
         self.read_at = datetime.now(timezone.utc)
-    
+
     def __repr__(self):
         return f"<Notification {self.id} [{self.notification_type}]>"

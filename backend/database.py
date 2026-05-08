@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import declarative_base
 from backend.config import settings
 
-
 # Création du moteur de base de données (SQLite pour dev local)
 engine = create_async_engine(
     "sqlite+aiosqlite:///./mobitranz.db",

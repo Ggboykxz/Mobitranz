@@ -11,7 +11,7 @@ from datetime import datetime
 
 class VehicleCreate(BaseModel):
     """Schéma pour créer un véhicule."""
-    
+
     plate_number: str = Field(..., description="Numéro de plaque")
     brand: str = Field(..., description="Marque")
     model: str = Field(..., description="Modèle")
@@ -22,7 +22,7 @@ class VehicleCreate(BaseModel):
 
 class VehicleUpdate(BaseModel):
     """Schéma pour mettre à jour un véhicule."""
-    
+
     brand: Optional[str] = None
     model: Optional[str] = None
     year: Optional[int] = None
@@ -33,7 +33,7 @@ class VehicleUpdate(BaseModel):
 
 class VehicleResponse(BaseModel):
     """Schéma pour la réponse véhicule."""
-    
+
     id: str
     plate_number: str
     brand: str
@@ -45,12 +45,12 @@ class VehicleResponse(BaseModel):
     status: str
     driver_id: Optional[str]
     camera_enabled: bool
-    
+
     class Config:
         from_attributes = True
 
 
 class VehicleQRGenerate(BaseModel):
     """Schéma pour générer un QR code véhicule."""
-    
+
     trip_id: str = Field(..., description="ID du trajet")

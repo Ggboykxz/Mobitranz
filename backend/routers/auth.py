@@ -24,22 +24,20 @@ from backend.schemas.auth import (
 from backend.services.auth_service import auth_service
 from backend.models.user import User, UserRole, UserStatus
 
-
 logger = structlog.get_logger()
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(
-    data: UserRegister,
-    db: AsyncSession = Depends(get_db)
-):
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
+async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     """Inscrit un nouvel utilisateur.
-    
+
     Crée un nouveau compte utilisateur avec téléphone et mot de passe.
     """
     logger.info("Inscription utilisateur", phone=data.phone)
-    
+
     user = User(
         phone=data.phone,
         email=data.email,
@@ -49,19 +47,16 @@ async def register(
         first_name=data.first_name,
         last_name=data.last_name,
     )
-    
+
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    
-    access_token = auth_service.create_access_token(
-        user.id,
-        user.role.value
-    )
+
+    access_token = auth_service.create_access_token(user.id, user.role.value)
     refresh_token = auth_service.create_refresh_token(user.id)
-    
+
     logger.info("Utilisateur inscrit", user_id=user.id)
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -70,46 +65,35 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
-    data: UserLogin,
-    db: AsyncSession = Depends(get_db)
-):
+async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     """Authentifie un utilisateur.
-    
+
     Valide les identifiants et retourne les tokens JWT.
     """
     logger.info("Connexion utilisateur", phone=data.phone)
-    
-    user = await auth_service.authenticate_user(
-        db,
-        data.phone,
-        data.password
-    )
-    
+
+    user = await auth_service.authenticate_user(db, data.phone, data.password)
+
     if not user:
         logger.warning("Échec connexion", phone=data.phone)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Identifiants invalides"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Identifiants invalides"
         )
-    
+
     if await auth_service.check_account_locked(db, user):
         logger.warning("Compte verrouillé", phone=data.phone)
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail="Compte temporairement verrouillé"
+            detail="Compte temporairement verrouillé",
         )
-    
+
     await auth_service.reset_failed_attempts(db, user)
-    
-    access_token = auth_service.create_access_token(
-        user.id,
-        user.role.value
-    )
+
+    access_token = auth_service.create_access_token(user.id, user.role.value)
     refresh_token = auth_service.create_refresh_token(user.id)
-    
+
     logger.info("Connexion réussie", user_id=user.id)
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -118,43 +102,37 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(
-    data: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db)
-):
+async def refresh_token(data: RefreshTokenRequest, db: AsyncSession = Depends(get_db)):
     """Rafraîchit les tokens JWT.
-    
+
     Utilise le token de rafraîchissement pour obtenir
     une nouvelle paire de tokens.
     """
     payload = auth_service.verify_token(data.refresh_token)
-    
+
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de rafraîchissement invalide"
+            detail="Token de rafraîchissement invalide",
         )
-    
+
     user_id = payload.get("sub")
-    
+
     from sqlalchemy import select
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user or user.status != UserStatus.ACTIVE:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utilisateur inactif"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Utilisateur inactif"
         )
-    
-    access_token = auth_service.create_access_token(
-        user.id,
-        user.role.value
-    )
+
+    access_token = auth_service.create_access_token(user.id, user.role.value)
     refresh_token = auth_service.create_refresh_token(user.id)
-    
+
     logger.info("Tokens rafraîchis", user_id=user.id)
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -166,20 +144,19 @@ async def refresh_token(
 async def enable_totp(
     data: TOTPEnable,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Active le 2FA TOTP pour un utilisateur."""
     logger.info("Activation TOTP", user_id=current_user.id)
-    
+
     if not auth_service.verify_totp(data.secret, data.code):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code TOTP invalide"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Code TOTP invalide"
         )
-    
+
     current_user.totp_secret = data.secret
     await db.commit()
-    
+
     return {"message": "TOTP activé"}
 
 
@@ -187,105 +164,93 @@ async def enable_totp(
 async def disable_totp(
     data: TOTPDisable,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """Désactive le 2FA TOTP pour un utilisateur."""
     logger.info("Désactivation TOTP", user_id=current_user.id)
-    
+
     if not auth_service.verify_totp(current_user.totp_secret, data.code):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code TOTP invalide"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Code TOTP invalide"
         )
-    
+
     current_user.totp_secret = None
     await db.commit()
-    
+
     return {"message": "TOTP désactivé"}
 
 
 @router.get("/totp/setup")
-async def setup_totp(
-    current_user: User = Depends(get_current_user)
-):
+async def setup_totp(current_user: User = Depends(get_current_user)):
     """Génère la configuration TOTP."""
     secret = auth_service.generate_totp_secret()
     uri = auth_service.get_totp_uri(secret, current_user.phone)
-    
+
     return {"secret": secret, "uri": uri}
 
 
 @router.post("/logout")
-async def logout(
-    current_user: User = Depends(get_current_user)
-):
+async def logout(current_user: User = Depends(get_current_user)):
     """Déconnecte l'utilisateur (blacklist le token)."""
     from backend.redis_client import redis_client
-    
+
     logger.info("Déconnexion", user_id=current_user.id)
-    
+
     return {"message": "Déconnexion réussie"}
 
 
 @router.post("/password-reset/request")
-async def request_password_reset(
-    phone: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def request_password_reset(phone: str, db: AsyncSession = Depends(get_db)):
     """Demande de réinitialisation du mot de passe.
-    
+
     Envoie un code SMS à l'utilisateur.
     """
     result = await db.execute(select(User).where(User.phone == phone))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         return {"message": "Si l'utilisateur existe, un code sera envoyé"}
-    
+
     code = auth_service.generate_reset_code()
     user.reset_code = code
     user.reset_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.commit()
-    
+
     logger.info("Code reset envoyé", user_id=user.id, phone=phone)
-    
+
     return {"message": "Code envoyé"}
 
 
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(
-    phone: str,
-    code: str,
-    new_password: str,
-    db: AsyncSession = Depends(get_db)
+    phone: str, code: str, new_password: str, db: AsyncSession = Depends(get_db)
 ):
     """Confirme la réinitialisation du mot de passe."""
     result = await db.execute(select(User).where(User.phone == phone))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Utilisateur non trouvé"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur non trouvé"
         )
-    
+
     if not user.reset_code or user.reset_code != code:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code invalide"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Code invalide"
         )
-    
-    if not user.reset_code_expires or user.reset_code_expires < datetime.now(timezone.utc):
+
+    if not user.reset_code_expires or user.reset_code_expires < datetime.now(
+        timezone.utc
+    ):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code expiré"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Code expiré"
         )
-    
+
     user.password_hash = auth_service.hash_password(new_password)
     user.reset_code = None
     user.reset_code_expires = None
     await db.commit()
-    
+
     logger.info("Mot de passe réinitialisé", user_id=user.id)
-    
+
     return {"message": "Mot de passe mis à jour"}

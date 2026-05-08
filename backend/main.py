@@ -14,14 +14,24 @@ from backend.database import init_db, engine
 from backend.redis_client import redis_client
 
 # Import routers
-from backend.routers import auth, trips, payments, drivers, vehicles, voice, incidents, analytics, users, admin
+from backend.routers import (
+    auth,
+    trips,
+    payments,
+    drivers,
+    vehicles,
+    voice,
+    incidents,
+    analytics,
+    users,
+    admin,
+)
 
 # Import WebSocket
 from backend.websocket import websocket_router
 
 # Import Middleware
 from backend.middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware
-
 
 logger = structlog.get_logger()
 
@@ -30,28 +40,28 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI):
     """Gestionnaire du cycle de vie de l'application."""
     logger.info("Démarrage de MobiTranz", version=settings.app_version)
-    
+
     try:
         logger.info("Initialisation de la base de données")
         await init_db()
     except Exception as e:
         logger.warning("Base de données non disponible", error=str(e))
-    
+
     try:
         logger.info("Connexion à Redis")
         await redis_client.connect()
     except Exception as e:
         logger.warning("Redis non disponible", error=str(e))
-    
+
     yield
-    
+
     try:
         logger.info("Fermeture des connexions")
         await redis_client.disconnect()
         await engine.dispose()
     except Exception:
         pass
-    
+
     logger.info("MobiTranz arrêté")
 
 
@@ -88,7 +98,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000", "http://127.0.0.1:8000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -118,7 +133,7 @@ async def root():
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "status": "online"
+        "status": "online",
     }
 
 
@@ -126,17 +141,18 @@ async def root():
 async def health():
     """Vérification de l'état de santé."""
     health_status = {"status": "healthy", "services": {}}
-    
+
     # Check database
     try:
         from sqlalchemy import text
+
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         health_status["services"]["database"] = "ok"
     except Exception as e:
         health_status["services"]["database"] = f"error: {str(e)}"
         health_status["status"] = "degraded"
-    
+
     # Check Redis
     try:
         if redis_client.redis:
@@ -145,7 +161,7 @@ async def health():
     except Exception as e:
         health_status["services"]["redis"] = f"error: {str(e)}"
         health_status["status"] = "degraded"
-    
+
     return health_status
 
 
