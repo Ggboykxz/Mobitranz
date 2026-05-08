@@ -49,6 +49,11 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
       
       postgres:
         image: postgres:15-alpine
@@ -60,9 +65,9 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     
     steps:
       - uses: actions/checkout@v4
@@ -76,11 +81,15 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx
+          pip install pytest pytest-asyncio pytest-cov httpx pytest-timeout
+      
+      - name: Wait for services
+        run: |
+          python -c "import time; time.sleep(5)"
       
       - name: Run tests
         run: |
-          python -m pytest backend/tests/ -v --cov=backend --cov-report=xml
+          python -m pytest backend/tests/ -v --cov=backend --cov-report=xml --timeout=60
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/mobitranz_test
           REDIS_URL: redis://localhost:6379
