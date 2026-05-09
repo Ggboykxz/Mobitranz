@@ -251,5 +251,13 @@ class AuthService:
         user.last_login = datetime.now(timezone.utc)
         await db.commit()
 
+    def generate_reset_code(self) -> str:
+        """Génère un code de réinitialisation de mot de passe.
+
+        Returns:
+            str: Code à 6 chiffres
+        """
+        return f"{secrets.randbelow(1000000):06d}"
+
 
 auth_service = AuthService()

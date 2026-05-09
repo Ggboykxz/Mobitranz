@@ -95,7 +95,6 @@ class LoginLayout(BoxLayout):
         )
         
         self.add_widget(title)
-        self.add_widget(pin_input)
         self.add_widget(self.pin_input)
         self.add_widget(self.fingerprint_btn)
         self.add_widget(login_btn)

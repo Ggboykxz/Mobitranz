@@ -186,30 +186,42 @@ class LoginWindow(ctk.CTkFrame):
             )
     
     def _on_login_click(self):
-        """Gere la tentative de connexion (mode mock pour test)."""
+        """Gere la tentative de connexion."""
         email = self._email_field.get().strip()
         password = self._password_field.get().strip()
         pal = self._get_colors()
-        
+
         if not email:
             self._email_field.configure(border_color=pal["danger"])
             return
         if not password:
             self._password_field.configure(border_color=pal["danger"])
             return
-        
+
         self._login_btn.configure(state="disabled", text="Connexion...")
-        
-        import time
-        time.sleep(0.8)
-        
-        mock_token = "mock_access_token_" + str(int(time.time()))
-        
-        TokenStorage.store(
-            access_token=mock_token,
-            refresh_token="mock_refresh_token",
-            expires_in_seconds=900,
-        )
-        
-        if self._on_success:
-            self._on_success({"email": email, "role": "admin", "name": "Admin MobiTranz"})
+
+        self.after(100, self._perform_login, email, password)
+
+    def _perform_login(self, email: str, password: str):
+        """Effectue la vérification de connexion."""
+        from desktop_admin.config import ADMIN_USERNAME, ADMIN_PASSWORD
+        from desktop_admin.api_service import api_service
+
+        pal = self._get_colors()
+
+        if email == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            import time
+            token = f"admin_token_{int(time.time())}"
+            TokenStorage.store(
+                access_token=token,
+                refresh_token="mock_refresh_token",
+                expires_in_seconds=3600,
+            )
+            api_service.set_token(token)
+
+            if self._on_success:
+                self._on_success({"email": email, "role": "admin", "name": "Admin MobiTranz"})
+        else:
+            self._login_btn.configure(state="normal", text="Connexion")
+            self._password_field.configure(border_color=pal["danger"])
+            self._error_label.configure(text="Identifiants invalides")

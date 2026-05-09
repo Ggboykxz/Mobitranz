@@ -11,28 +11,24 @@ import mobile.config as config
 
 class APIClient:
     """Client HTTP pour l'API MobiTranz.
-    
+
     Gère les requêtes vers le backend avec gestion
     des tokens JWT et erreurs.
     """
-    
+
     def __init__(self):
         """Initialise le client API."""
-        self._client = None
-        self._access_token: Optional[str] = None
-    
-    async def __aenter__(self):
-        """Entre dans le contexte async."""
         self._client = httpx.AsyncClient(
             base_url=config.API_BASE_URL,
             timeout=config.API_TIMEOUT,
         )
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Sort du contexte async."""
+        self._access_token: Optional[str] = None
+
+    async def close(self):
+        """Ferme le client HTTP."""
         if self._client:
             await self._client.aclose()
+            self._client = None
     
     def set_token(self, token: str):
         """Définit le token JWT."""
@@ -47,6 +43,8 @@ class APIClient:
     
     async def post(self, endpoint: str, data: Dict) -> Dict:
         """Envoie une requête POST."""
+        if not self._client:
+            raise RuntimeError("API client not initialized")
         response = await self._client.post(
             endpoint,
             json=data,
@@ -54,9 +52,11 @@ class APIClient:
         )
         response.raise_for_status()
         return response.json()
-    
+
     async def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Envoie une requête GET."""
+        if not self._client:
+            raise RuntimeError("API client not initialized")
         response = await self._client.get(
             endpoint,
             params=params,

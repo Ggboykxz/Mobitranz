@@ -4,12 +4,14 @@
 # Description : Routes /payments/* (initiation, webhook, confirmation)
 # ============================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
+from starlette.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timezone
 import structlog
 
+from backend.config import settings
 from backend.database import get_db
 from backend.schemas.payment import (
     PaymentCreate,
@@ -92,13 +94,44 @@ async def initiate_payment(data: PaymentCreate, db: AsyncSession = Depends(get_d
 
 
 @router.post("/webhook")
-async def payment_webhook(data: PaymentWebhook, db: AsyncSession = Depends(get_db)):
+async def payment_webhook(
+    data: PaymentWebhook,
+    db: AsyncSession = Depends(get_db),
+    x_signature: str = Header(None, alias="X-Signature"),
+    x_provider: str = Header(None, alias="X-Provider"),
+):
     """Webhook pour recevoir les callbacks des providers de paiement.
 
     Endpoint appelé par MoovMoney/Airtel Money lors du changement
     de statut d'un paiement.
     """
-    # Trouver le paiement par transaction ID externe
+    if not x_signature:
+        logger.warning("Webhook sans signature", provider=x_provider)
+        return JSONResponse(
+            status_code=401,
+            content={"status": "rejected", "reason": "Missing signature"},
+        )
+
+    expected_signature = f"{data.transaction_id}:{data.status}:{data.amount}"
+    import hmac
+    import hashlib
+
+    provider_key = (
+        settings.moovmoney_api_secret
+        if x_provider == "moovmoney"
+        else settings.airtelmoney_api_secret
+    )
+    if provider_key:
+        computed_sig = hmac.new(
+            provider_key.encode(), expected_signature.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(computed_sig, x_signature):
+            logger.warning("Signature webhook invalide", provider=x_provider)
+            return JSONResponse(
+                status_code=401,
+                content={"status": "rejected", "reason": "Invalid signature"},
+            )
+
     result = await db.execute(
         select(Payment).where(Payment.external_transaction_id == data.transaction_id)
     )

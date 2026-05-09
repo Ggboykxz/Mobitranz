@@ -4,9 +4,10 @@
 # Description : Paramètres globaux chargés depuis .env
 # ============================================================
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="MobiTranz", alias="APP_NAME")
     app_version: str = Field(default="1.0.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
-    secret_key: str = Field(default="changeme", alias="SECRET_KEY")
+    secret_key: str = Field(default=None, alias="SECRET_KEY")
 
     # Configuration Base de Données
     database_url: str = Field(

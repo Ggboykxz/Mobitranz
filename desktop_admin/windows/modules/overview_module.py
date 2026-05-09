@@ -330,14 +330,21 @@ class OverviewModule(ctk.CTkFrame):
     
     def _start_auto_refresh(self):
         """Démarre le rafraîchissement automatique."""
+        self._auto_refresh_running = True
+
         def refresh_loop():
             import time
-            while True:
+            while self._auto_refresh_running:
                 time.sleep(60)
-                self.after(0, self._load_data)
-        
+                if self._auto_refresh_running:
+                    self.after(0, self._load_data)
+
         thread = threading.Thread(target=refresh_loop, daemon=True)
         thread.start()
+
+    def stop_auto_refresh(self):
+        """Arrête le rafraîchissement automatique."""
+        self._auto_refresh_running = False
     
     def on_show(self):
         """Callback affiché."""

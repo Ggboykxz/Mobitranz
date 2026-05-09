@@ -4,6 +4,8 @@
 # Description : En-têtes de sécurité HTTP
 # ============================================================
 
+import asyncio
+import time
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -58,35 +60,47 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.request_counts = {}
+        self._lock = asyncio.Lock()
+
+    def _get_client_ip(self, request: Request) -> str:
+        """Récupère l'IP client de manière sécurisée."""
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+            if client_ip:
+                return client_ip
+
+        if request.client and request.client.host:
+            return request.client.host
+        return "unknown"
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Traitement de la requête avec rate limiting."""
-        client_ip = request.client.host if request.client else "unknown"
-
-        import time
+        client_ip = self._get_client_ip(request)
 
         current_time = int(time.time() / 60)
 
         key = f"{client_ip}:{current_time}"
 
-        if key in self.request_counts:
-            if self.request_counts[key] >= self.requests_per_minute:
-                logger.warning("Rate limit exceeded", ip=client_ip)
-                from fastapi.responses import JSONResponse
+        async with self._lock:
+            if key in self.request_counts:
+                if self.request_counts[key] >= self.requests_per_minute:
+                    logger.warning("Rate limit exceeded", ip=client_ip)
+                    from fastapi.responses import JSONResponse
 
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Too many requests. Please try again later."},
-                )
-            self.request_counts[key] += 1
-        else:
-            self.request_counts[key] = 1
+                    return JSONResponse(
+                        status_code=429,
+                        content={"detail": "Too many requests. Please try again later."},
+                    )
+                self.request_counts[key] += 1
+            else:
+                self.request_counts[key] = 1
 
-        self.request_counts = {
-            k: v
-            for k, v in self.request_counts.items()
-            if k.endswith(str(current_time))
-        }
+            self.request_counts = {
+                k: v
+                for k, v in self.request_counts.items()
+                if k.endswith(str(current_time))
+            }
 
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)

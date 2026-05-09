@@ -208,17 +208,14 @@ async def request_password_reset(phone: str, db: AsyncSession = Depends(get_db))
     result = await db.execute(select(User).where(User.phone == phone))
     user = result.scalar_one_or_none()
 
-    if not user:
-        return {"message": "Si l'utilisateur existe, un code sera envoyé"}
+    if user:
+        code = auth_service.generate_reset_code()
+        user.reset_code = code
+        user.reset_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+        await db.commit()
+        logger.info("Code reset envoyé", user_id=user.id, phone=phone)
 
-    code = auth_service.generate_reset_code()
-    user.reset_code = code
-    user.reset_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
-    await db.commit()
-
-    logger.info("Code reset envoyé", user_id=user.id, phone=phone)
-
-    return {"message": "Code envoyé"}
+    return {"message": "Si le numéro existe, un code sera envoyé par SMS"}
 
 
 @router.post("/password-reset/confirm")

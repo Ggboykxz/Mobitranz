@@ -23,7 +23,7 @@ class TripHistoryScreen(Screen):
         
         # Header
         header = BoxLayout(size_hint_y=None, height=60)
-        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE,
+        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE_BG,
                        on_press=lambda x: setattr(self.manager, 'current', 'home'))
         title = Label(text="📋 Historique", font_size=20, color=Colors.PRIMARY, size_hint_x=0.7)
         header.add_widget(back_btn)
@@ -33,7 +33,7 @@ class TripHistoryScreen(Screen):
         # Filter tabs
         tabs = BoxLayout(size_hint_y=None, height=40)
         for tab in ["Tout", "Ce jour", "Cette semaine", "Ce mois"]:
-            btn = Button(text=tab, size_hint_x=0.25, background_color=Colors.SURFACE, color=Colors.TEXT_PRIMARY, font_size=11)
+            btn = Button(text=tab, size_hint_x=0.25, background_color=Colors.SURFACE_BG, color=Colors.TEXT_PRIMARY, font_size=11)
             tabs.add_widget(btn)
         layout.add_widget(tabs)
         
@@ -45,13 +45,13 @@ class TripHistoryScreen(Screen):
         ]
         
         for time, route, amount, status in trips:
-            trip_card = BoxLayout(orientation="vertical", padding=12, background_color=Colors.SURFACE, radius=[8])
+            trip_card = BoxLayout(orientation="vertical", padding=12, background_color=Colors.SURFACE_BG, radius=[8])
             top = BoxLayout(size_hint_y=None, height=30)
             top.add_widget(Label(text=time, font_size=12, color=Colors.TEXT_SECONDARY, size_hint_x=0.2))
             top.add_widget(Label(text=status, font_size=12, color=Colors.ACCENT if "✅" in status else Colors.DANGER, size_hint_x=0.8))
             trip_card.add_widget(top)
             trip_card.add_widget(Label(text=route, font_size=14, color=Colors.TEXT_PRIMARY))
-            trip_card.add_widget(Label(text=amount, font_size=16, color=Colors.PRIMARY, weight="bold"))
+            trip_card.add_widget(Label(text=amount, font_size=16, color=Colors.PRIMARY, bold=True))
             layout.add_widget(trip_card)
         
         # Summary

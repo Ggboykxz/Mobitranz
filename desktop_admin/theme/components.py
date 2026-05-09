@@ -333,6 +333,26 @@ class KPICard(ctk.CTkFrame):
         """Met à jour la valeur affichée."""
         self._value_label.configure(text=new_value)
 
+    def set_value(self, new_value: str):
+        """Met à jour la valeur affichée (alias)."""
+        self.update_value(new_value)
+
+    def set_trend(self, trend: int):
+        """Met à jour la tendance (recreate le widget)."""
+        if trend > 0:
+            t_color = ("#009E60", "#4DC882")
+            t_text = f"↑ +{trend}%"
+            t_bg = ("#E6F8EF", "#1A4A2E")
+        elif trend < 0:
+            t_color = ("#E53E3E", "#FC8181")
+            t_text = f"↓ {trend}%"
+            t_bg = ("#FEF2F2", "#4A1A1A")
+        else:
+            t_color = ("#6B7280", "#9CA3AF")
+            t_text = "→ Stable"
+            t_bg = ("#F3F4F6", "#374151")
+        return {"color": t_color, "text": t_text, "bg": t_bg}
+
 
 # ============================================================
 # COMPOSANT : SIDEBAR ACRYLIC

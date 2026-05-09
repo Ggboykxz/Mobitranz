@@ -93,6 +93,12 @@ class RatingScreen(Screen):
         ]
         
         self._feedback = {}
+
+        def make_star_callback(feedback_item, star_index):
+            def callback(instance):
+                self._set_feedback(feedback_item, star_index)
+            return callback
+
         for item in feedback_labels:
             row = BoxLayout(size_hint_y=None, height="36dp")
             row.add_widget(Label(text=item, color=Colors.TEXT_PRIMARY, size_hint_x=1, halign="left"))
@@ -104,7 +110,7 @@ class RatingScreen(Screen):
                     background_color=(0, 0, 0, 0),
                     color=Colors.WARNING,
                     width="30dp",
-                    on_press=lambda x, idx=j: self._set_feedback(item, idx)
+                    on_press=make_star_callback(item, j)
                 )
                 stars.add_widget(btn)
             self._feedback[item] = 3
@@ -122,7 +128,7 @@ class RatingScreen(Screen):
         
         later_btn = Button(
             text="Plus tard",
-            background_color=Colors.SURFACE,
+            background_color=Colors.SURFACE_BG,
             color=Colors.TEXT_SECONDARY,
             size_hint_y=None,
             height="50dp",

@@ -60,6 +60,8 @@ class User(Base):
     totp_secret = Column(String(32), nullable=True)
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+    reset_code = Column(String(6), nullable=True)
+    reset_code_expires = Column(DateTime(timezone=True), nullable=True)
 
     # Métadonnées
     created_at = Column(

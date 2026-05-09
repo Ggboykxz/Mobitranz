@@ -15,6 +15,7 @@ from backend.config import settings
 from backend.models.trip import Trip, TripStatus
 from backend.models.payment import Payment, PaymentStatus
 from backend.models.incident import Incident, IncidentStatus
+from backend.models.driver import Driver
 
 logger = structlog.get_logger()
 

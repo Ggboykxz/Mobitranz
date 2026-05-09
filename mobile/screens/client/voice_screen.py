@@ -32,7 +32,7 @@ class VoiceScreen(Screen):
         
         # Header
         header = BoxLayout(size_hint_y=None, height=60)
-        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE,
+        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE_BG,
                        on_press=lambda x: setattr(self.manager, 'current', 'home'))
         title = Label(text="🎤 Proposition Vocale", font_size=20, color=Colors.PRIMARY, size_hint_x=0.7)
         header.add_widget(back_btn)
@@ -47,7 +47,7 @@ class VoiceScreen(Screen):
         layout.add_widget(instructions)
         
         # Zone de visualisation
-        self.waveform_area = BoxLayout(size_hint=(1, 0.4), background_color=Colors.SURFACE, radius=[12])
+        self.waveform_area = BoxLayout(size_hint=(1, 0.4), background_color=Colors.SURFACE_BG, radius=[12])
         self.waveform_label = Label(text="🎤", font_size=48, color=Colors.PRIMARY)
         self.waveform_area.add_widget(self.waveform_label)
         layout.add_widget(self.waveform_area)

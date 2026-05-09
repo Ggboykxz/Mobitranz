@@ -116,7 +116,7 @@ class SettingsModule(ctk.CTkFrame):
             z_row.pack(fill="x", pady=4)
             
             ctk.CTkLabel(z_row, text=zone, font=ctk.CTkFont(size=12, weight="bold"), width=200).pack(side="left", padx=12, pady=8)
-            ctk.CTkLabel(zrow, text=price, width=150).pack(side="left", padx=12)
+            ctk.CTkLabel(z_row, text=price, width=150).pack(side="left", padx=12)
             ctk.CTkLabel(z_row, text=status, fg_color="#009E60" if status == "Actif" else "#6B7280",
                         text_color="white", corner_radius=4, font=ctk.CTkFont(size=10),
                         padx=8, pady=2).pack(side="left", padx=12)

@@ -4,62 +4,51 @@
 # Description : Écran attente (revenus du jour, connexion)
 # ============================================================
 
-import tkinter as tk
-from tkinter import ttk
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.screenmanager import Screen
 
 
-class IdleScreen:
+class IdleScreen(Screen):
     """Écran d'attente de l'interface véhicule.
-    
+
     Affiche les revenus du jour et le statut de connexion.
     """
-    
-    def __init__(self, parent):
-        """Initialise l'écran d'attente."""
-        self.frame = ttk.Frame(parent)
-        
-        self.create_content()
-    
-    def create_content(self):
-        """Crée le contenu."""
-        title = ttk.Label(
-            self.frame,
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.name = "idle"
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = BoxLayout(orientation="vertical", padding=40, spacing=20)
+
+        title = Label(
             text="MobiTranz Véhicule",
-            font=("Arial", 24, "bold")
+            font_size=24,
+            size_hint_y=None,
+            height=50
         )
-        title.pack(pady=50)
-        
-        status_frame = ttk.LabelFrame(
-            self.frame,
-            text="Statut",
-            padding=20
-        )
-        status_frame.pack(pady=20)
-        
-        self.status_label = ttk.Label(
-            status_frame,
-            text="En attente",
-            font=("Arial", 16)
-        )
-        self.status_label.pack()
-        
-        stats_frame = ttk.LabelFrame(
-            self.frame,
-            text="Revenus du jour",
-            padding=20
-        )
-        stats_frame.pack(pady=20)
-        
-        self.revenue_label = ttk.Label(
-            stats_frame,
-            text="0 XAF",
-            font=("Arial", 32, "bold")
-        )
-        self.revenue_label.pack()
-    
-    def get_frame(self) -> ttk.Frame:
-        """Retourne le frame."""
-        return self.frame
+        layout.add_widget(title)
 
+        status_frame = BoxLayout(orientation="vertical", padding=20, size_hint_y=None, height=100)
+        status_frame.add_widget(Label(text="Statut", font_size=16))
+        self.status_label = Label(text="En attente", font_size=18)
+        status_frame.add_widget(self.status_label)
+        layout.add_widget(status_frame)
 
-idle_screen = IdleScreen(None)
+        stats_frame = BoxLayout(orientation="vertical", padding=20, size_hint_y=None, height=150)
+        stats_frame.add_widget(Label(text="Revenus du jour", font_size=16))
+        self.revenue_label = Label(text="0 XAF", font_size=32)
+        stats_frame.add_widget(self.revenue_label)
+        layout.add_widget(stats_frame)
+
+        self.add_widget(layout)
+
+    def update_status(self, status: str):
+        """Met à jour le statut."""
+        self.status_label.text = status
+
+    def update_revenue(self, revenue: int):
+        """Met à jour les revenus."""
+        self.revenue_label.text = f"{revenue} XAF"

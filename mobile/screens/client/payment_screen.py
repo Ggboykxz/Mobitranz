@@ -24,7 +24,7 @@ class PaymentScreen(Screen):
         
         # Header
         header = BoxLayout(size_hint_y=None, height=60)
-        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE,
+        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE_BG,
                        on_press=lambda x: setattr(self.manager, 'current', 'home'))
         title = Label(text="💳 Paiement", font_size=20, color=Colors.PRIMARY, size_hint_x=0.7)
         header.add_widget(back_btn)
@@ -49,7 +49,7 @@ class PaymentScreen(Screen):
         ]
         
         for text, color in methods:
-            btn = Button(text=text, height=56, background_color=Colors.SURFACE, color=Colors.TEXT_PRIMARY)
+            btn = Button(text=text, height=56, background_color=Colors.SURFACE_BG, color=Colors.TEXT_PRIMARY)
             btn.bind(on_press=lambda x, m=text: self.select_method(m))
             layout.add_widget(btn)
         
