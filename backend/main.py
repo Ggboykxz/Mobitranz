@@ -136,7 +136,6 @@ Authorization: Bearer <token>
         "url": "https://mobitranz.ga/support"
     },
     lifespan=lifespan,
-    openapi_url="/openapi.json",
     openapi_tags=openapi_tags,
 )
 
