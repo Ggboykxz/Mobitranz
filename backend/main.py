@@ -6,12 +6,32 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.docs import Redoc
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import structlog
 from contextlib import asynccontextmanager
 
 from backend.config import settings
 from backend.database import init_db, engine
 from backend.redis_client import redis_client
+
+# ============================================================
+# Configuration OpenAPI
+# ============================================================
+openapi_tags = [
+    {"name": "Auth", "description": "Authentification et gestion des tokens"},
+    {"name": "Trips", "description": "Gestion des trajets"},
+    {"name": "Payments", "description": "Paiements et transactions"},
+    {"name": "Drivers", "description": "Gestion des chauffeurs"},
+    {"name": "Vehicles", "description": "Gestion des véhicules"},
+    {"name": "Voice", "description": "Reconnaissance vocale et propositions"},
+    {"name": "Incidents", "description": "Signalement et gestion des incidents"},
+    {"name": "Analytics", "description": "Statistiques et rapports"},
+    {"name": "Users", "description": "Gestion des utilisateurs"},
+    {"name": "Admin", "description": "Fonctions d'administration"},
+    {"name": "Health", "description": "Vérifications de santé"},
+]
 
 # Import routers
 from backend.routers import (
@@ -68,31 +88,56 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MobiTranz API",
     version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     description="""## MobiTranz - Plateforme de Paiement Numérique pour le Transport Gabonais
 
 ### Fonctionnalités
 
-- **Authentification** : Inscription, connexion, JWT tokens
+- **Authentification** : Inscription, connexion, JWT tokens, 2FA TOTP
 - **Gestion des Trajets** : Création, suivi, historique des trajets
-- **Paiements** : Wallet numérique, QR codes, transactions
+- **Paiements** : MoovMoney, Airtel Money, Wallet numérique, QR codes
 - **Chauffeurs** : Gestion des chauffeurs et de leur statut
-- **Véhicules** : Suivi et gestion des véhicules
+- **Véhicules** : Suivi GPS et gestion des véhicules
 - **Incidents** : Signalement et gestion des incidents (SOS)
-- **Analytiques** : Statistiques et rapports
+- **Analytiques** : Statistiques et rapportsministère
 - **Vocabulaire** : Analyse vocale pour propositions de trajets
 - **Administration** : CRUD complet pour tous les modules
 - **WebSocket** : Temps réel pour GPS, notifications, incidents
+
+### Authentification
+
+Tous les endpoints protégés nécessitent un token JWT dans le header:
+```
+Authorization: Bearer <token>
+```
+
+### Rate Limiting
+
+- Auth endpoints: 5 requêtes / 15 min
+- Paiements: 10 requêtes / min
+- API générale: 100 requêtes / min
 
 ### Contact
 
 - **Email**: support@mobitranz.ga
 - **Site**: https://mobitranz.ga
 - **Pays**: Gabon (Libreville)
+- **Version API**: v1
 """,
+    license_info={
+        "name": "Propriétaire - MobiTranz Gabon",
+        "url": "https://mobitranz.ga/legal"
+    },
+    contact={
+        "name": "Support MobiTranz",
+        "email": "support@mobitranz.ga",
+        "url": "https://mobitranz.ga/support"
+    },
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
     openapi_url="/openapi.json",
+    openapi_tags=openapi_tags,
 )
 
 
