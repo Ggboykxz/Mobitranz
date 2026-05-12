@@ -39,45 +39,33 @@ brew install python autoconf automake libtool
 
 ## Build APK
 
-### 1. Cloner le projet
+### Option 1 : Script automatise (recommande)
 ```bash
-git clone https://github.com/Ggboykxz/Mobitranz.git
-cd Mobitranz/mobile
+bash scripts/build_android.sh debug
+```
+Le script installe tout automatiquement (Java, Android SDK, NDK, buildozer).
+
+### Option 2 : Docker
+```bash
+docker build -f Dockerfile.mobile -t mobitranz-mobile .
+docker run --rm -v $(pwd)/mobile/bin:/app/mobile/bin mobitranz-mobile
 ```
 
-### 2. Installer buildozer
+### Option 3 : Manuel
 ```bash
+cd mobile
 pip install --user buildozer cython
-```
-
-### 3. Configurer les chemins SDK
-Editer `buildozer.spec` si necessaire :
-```ini
-android.sdk_path = /home/votreuser/android
-android.ndk_path = /home/votreuser/android/ndk/27.0.12077973
-```
-
-### 4. Build APK Debug
-```bash
 buildozer android debug
 ```
 
-**L'APK sera dans :** `mobile/bin/mobitranz-1.1.0-<version>-debug.apk`
+**APK :** `mobile/bin/mobitranz-1.1.0-debug.apk`
 
-### 5. Build APK Release (signe)
+### Release
 ```bash
-buildozer android release
-```
-
-Signer l'APK :
-```bash
-jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
-  -keystore ~/mobitranz.keystore \
-  mobile/bin/mobitranz-1.1.0-release-unsigned.apk mobitranz
-
-zipalign -v 4 \
-  mobile/bin/mobitranz-1.1.0-release-unsigned.apk \
-  mobile/bin/mobitranz-1.1.0-release.apk
+bash scripts/build_android.sh release
+# Signer :
+jarsigner -keystore ~/mobitranz.keystore mobile/bin/mobitranz-release-unsigned.apk mobitranz
+zipalign -v 4 mobile/bin/mobitranz-release-unsigned.apk mobile/bin/mobitranz-1.1.0-release.apk
 ```
 
 ---
