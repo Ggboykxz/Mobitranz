@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
+from backend.models.user import User
 from backend.schemas.trip import TripCreate, TripResponse, HornValidation
 from backend.models.trip import Trip, TripStatus
 from backend.models.driver import Driver
@@ -23,7 +25,7 @@ router = APIRouter(prefix="/trips", tags=["Trips"])
 
 
 @router.post("/", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
-async def create_trip(data: TripCreate, db: AsyncSession = Depends(get_db)):
+async def create_trip(data: TripCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Crée un nouveau trajet.
 
     Crée un trajet après acceptation d'une proposition vocale
@@ -61,7 +63,7 @@ async def create_trip(data: TripCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{trip_id}", response_model=TripResponse)
-async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère les détails d'un trajet."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -76,7 +78,7 @@ async def get_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{trip_id}/Horn", status_code=status.HTTP_200_OK)
 async def validate_horn(
-    trip_id: str, data: HornValidation, db: AsyncSession = Depends(get_db)
+    trip_id: str, data: HornValidation, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Valide le pattern klaxon pour un trajet.
 
@@ -116,7 +118,7 @@ async def validate_horn(
 
 
 @router.post("/{trip_id}/start", response_model=TripResponse)
-async def start_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def start_trip(trip_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Démarre un trajet après paiement confirmé."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -141,7 +143,7 @@ async def start_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{trip_id}/complete", response_model=TripResponse)
-async def complete_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def complete_trip(trip_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Marque un trajet comme terminé."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -161,7 +163,7 @@ async def complete_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/driver/{driver_id}/active")
-async def get_active_trip(driver_id: str, db: AsyncSession = Depends(get_db)):
+async def get_active_trip(driver_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère le trajet actif d'un conducteur."""
     result = await db.execute(
         select(Trip).where(
@@ -177,7 +179,7 @@ async def get_active_trip(driver_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{trip_id}/join")
-async def join_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(get_db)):
+async def join_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Permet à un client de rejoindre un trajet."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -211,7 +213,7 @@ async def join_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(get
 
 
 @router.delete("/{trip_id}/clients/{client_id}")
-async def leave_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(get_db)):
+async def leave_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Permet à un client de quitter un trajet."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))
     trip = result.scalar_one_or_none()
@@ -241,7 +243,7 @@ async def leave_trip(trip_id: str, client_id: str, db: AsyncSession = Depends(ge
 
 @router.post("/{trip_id}/cancel")
 async def cancel_trip(
-    trip_id: str, reason: str = None, db: AsyncSession = Depends(get_db)
+    trip_id: str, reason: str = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Annule un trajet."""
     result = await db.execute(select(Trip).where(Trip.id == trip_id))

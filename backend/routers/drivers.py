@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
 from backend.models.driver import Driver, DriverStatus
 from backend.models.user import User, UserRole, UserStatus
 from backend.schemas.user import UserCreate, DriverProfileResponse
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/drivers", tags=["Drivers"])
     response_model=DriverProfileResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def register_driver(data: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register_driver(data: UserCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Inscrit un nouveau conducteur.
 
     Crée un compte utilisateur avec rôle DRIVER et un profil conducteur.
@@ -78,6 +79,7 @@ async def list_drivers(
     status_filter: str = None,
     limit: int = 50,
     offset: int = 0,
+    current_user: User = Depends(get_current_user),
 ):
     """Liste les conducteurs avec filtres."""
     query = select(Driver)
@@ -97,7 +99,7 @@ async def list_drivers(
 
 
 @router.get("/{driver_id}", response_model=DriverProfileResponse)
-async def get_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
+async def get_driver(driver_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère les détails d'un conducteur."""
     result = await db.execute(select(Driver).where(Driver.id == driver_id))
     driver = result.scalar_one_or_none()
@@ -111,7 +113,7 @@ async def get_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{driver_id}/validate")
-async def validate_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
+async def validate_driver(driver_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Valide un conducteur après vérification KYC.
 
     Marque le conducteur comme validé et active son compte.
@@ -141,7 +143,7 @@ async def validate_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{driver_id}/suspend")
-async def suspend_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
+async def suspend_driver(driver_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Suspend un conducteur."""
     result = await db.execute(select(Driver).where(Driver.id == driver_id))
     driver = result.scalar_one_or_none()
@@ -163,7 +165,7 @@ async def suspend_driver(driver_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{driver_id}/location")
 async def update_location(
-    driver_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_db)
+    driver_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Met à jour la localisation d'un conducteur."""
     result = await db.execute(select(Driver).where(Driver.id == driver_id))
@@ -189,6 +191,7 @@ async def get_available_drivers(
     lon: float = None,
     radius_km: float = 10.0,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Retourne les conductores disponibles (optionnellement par proximité).
 

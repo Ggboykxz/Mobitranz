@@ -13,6 +13,7 @@ import structlog
 from backend.database import get_db
 from backend.models.user import User, UserStatus
 from backend.services.auth_service import auth_service
+from backend.deps.auth_deps import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -25,6 +26,7 @@ async def list_users(
     status: str = None,
     limit: int = 50,
     offset: int = 0,
+    current_user: User = Depends(get_current_user),
 ):
     """Liste les utilisateurs avec filtres."""
     query = select(User)
@@ -53,7 +55,7 @@ async def list_users(
 
 
 @router.get("/{user_id}")
-async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_user(user_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère un utilisateur."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -75,6 +77,7 @@ async def create_user(
     first_name: str = None,
     last_name: str = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Crée un utilisateur (admin only)."""
     # Check existing
@@ -112,6 +115,7 @@ async def update_user(
     first_name: str = None,
     last_name: str = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Met à jour un utilisateur."""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -139,7 +143,7 @@ async def update_user(
 
 
 @router.post("/{user_id}/suspend")
-async def suspend_user(user_id: str, db: AsyncSession = Depends(get_db)):
+async def suspend_user(user_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Suspend un utilisateur."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -160,7 +164,7 @@ async def suspend_user(user_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{user_id}/activate")
-async def activate_user(user_id: str, db: AsyncSession = Depends(get_db)):
+async def activate_user(user_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Active/réactive un utilisateur."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -181,7 +185,7 @@ async def activate_user(user_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_user(user_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Soft-delete un utilisateur."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

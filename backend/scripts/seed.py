@@ -200,7 +200,6 @@ async def create_driver(session, user_data: dict) -> tuple:
     driver = Driver(
         user_id=user.id,
         license_number="LIC-" + user.phone[-6:],
-        vehicle_plate="MT" + phone_suffix,
         status=DriverStatus.VALIDATED,
         current_lat=0.3921,
         current_lon=9.4543,

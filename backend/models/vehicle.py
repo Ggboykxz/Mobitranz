@@ -79,6 +79,7 @@ class Vehicle(Base):
     driver = relationship("Driver", back_populates="vehicle")
     trips = relationship("Trip", back_populates="vehicle")
     recordings = relationship("Recording", back_populates="vehicle")
+    raspberry_pi = relationship("RaspberryPiUnit", back_populates="vehicle")
 
     def __repr__(self):
         """Représentation textuelle du véhicule."""

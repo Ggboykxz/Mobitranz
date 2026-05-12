@@ -102,7 +102,7 @@ class MobiTranzClient:
                     error_detail = response.json().get("detail", "Erreur")
                 except Exception:
                     error_detail = response.text
-            return APIResponse(success=False, error=str(error_detail), status_code=response.status_code)
+                return APIResponse(success=False, error=str(error_detail), status_code=response.status_code)
 
             try:
                 return APIResponse(success=True, data=response.json(), status_code=response.status_code)

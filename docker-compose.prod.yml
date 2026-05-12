@@ -127,6 +127,77 @@ services:
       - mobitranz-network
 
   # ============================================================
+  # Celery Worker - Async Task Queue
+  # ============================================================
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: mobitranz-celery
+    restart: unless-stopped
+    command: celery -A backend.tasks.celery_app worker --loglevel=info --concurrency=8 --max-tasks-per-child=1000
+    env_file:
+      - .env.production
+    environment:
+      - ENVIRONMENT=production
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A backend.tasks.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - mobitranz-network
+    volumes:
+      - ./logs:/app/logs
+
+  # ============================================================
+  # Celery Beat - Periodic Tasks
+  # ============================================================
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: mobitranz-celery-beat
+    restart: unless-stopped
+    command: celery -A backend.tasks.celery_app beat --loglevel=info
+    env_file:
+      - .env.production
+    environment:
+      - ENVIRONMENT=production
+    depends_on:
+      - redis
+      - celery
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A backend.tasks.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    networks:
+      - mobitranz-network
+
+  # ============================================================
   # Nginx Reverse Proxy
   # ============================================================
   nginx:

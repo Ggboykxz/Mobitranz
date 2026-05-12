@@ -165,7 +165,7 @@ class MatchingService:
 
         fare_info = await geo_service.calculate_trip_fare(db=db, distance_km=distance)
 
-        from backend.models.voice_proposal import VoiceProposal, VoiceProposalStatus
+        from backend.models.voice_proposal import VoiceProposal
 
         proposal = VoiceProposal(
             driver_id=driver_id,
@@ -177,7 +177,7 @@ class MatchingService:
             dest_label=dest_label,
             amount=fare_info["final_amount"],
             seats_requested=1,
-            status=VoiceProposalStatus.PENDING,
+            is_validated="false",
         )
 
         db.add(proposal)

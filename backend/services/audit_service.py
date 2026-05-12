@@ -4,7 +4,7 @@
 # Description : Journalisation des actions pour conformité et sécurité
 # ============================================================
 
-import hashlib
+import hashlib as hl
 import json
 from datetime import datetime, timezone
 from typing import Optional
@@ -35,25 +35,19 @@ class AuditService:
         result: str = "success",
         data: dict = None,
     ) -> AuditLog:
-        """Enregistre une action dans l'audit log.
-
-        Args:
-            db: Session de base de données
-            user_id: ID de l'utilisateur
-            action: Type d'action (CREATE, UPDATE, DELETE, etc.)
-            resource: Ressource touchée (users, trips, payments, etc.)
-            ip_address: Adresse IP du client
-            user_agent: User agent du client
-            result: Résultat de l'action (success, failure, etc.)
-            data: Données supplémentaires (sérialisées en JSON)
-
-        Returns:
-            AuditLog: Entrée d'audit créée
-        """
         data_hash = None
         if data:
             data_str = json.dumps(data, sort_keys=True, default=str)
             data_hash = hashlib.sha256(data_str.encode()).hexdigest()
+
+        result_obj = await db.execute(
+            select(AuditLog).order_by(AuditLog.created_at.desc()).limit(1)
+        )
+        last_log = result_obj.scalar_one_or_none()
+        previous_hash = last_log.current_hash if last_log else "0" * 64
+
+        payload = f"{previous_hash}{action}{resource}{result}{data_hash or ''}{datetime.now(timezone.utc).isoformat()}"
+        current_hash = hl.sha256(payload.encode()).hexdigest()
 
         audit_log = AuditLog(
             user_id=user_id,
@@ -63,7 +57,8 @@ class AuditService:
             user_agent=user_agent,
             result=result,
             data_hash=data_hash,
-            timestamp=datetime.now(timezone.utc),
+            previous_hash=previous_hash,
+            current_hash=current_hash,
         )
 
         db.add(audit_log)
@@ -267,7 +262,7 @@ class AuditService:
         result = await db.execute(
             select(AuditLog)
             .where(AuditLog.user_id == user_id)
-            .order_by(AuditLog.timestamp.desc())
+            .order_by(AuditLog.created_at.desc())
             .limit(limit)
         )
 

@@ -7,12 +7,13 @@
 session_start();
 
 define('API_BASE', getenv('API_BASE_URL') ?: 'http://localhost:8000');
-define('APP_SECRET', 'mobitranz-admin-2026');
+define('APP_SECRET', getenv('APP_SECRET') ?: bin2hex(random_bytes(32)));
 
 $page = $_GET['page'] ?? 'dashboard';
 $user = $_SESSION['user'] ?? null;
+$token = $_SESSION['token'] ?? null;
+$apiError = null;
 
-// Route API
 function apiRequest($endpoint, $method = 'GET', $data = null, $token = null) {
     $ch = curl_init(API_BASE . $endpoint);
     $headers = ['Content-Type: application/json', 'Accept: application/json'];
@@ -28,21 +29,39 @@ function apiRequest($endpoint, $method = 'GET', $data = null, $token = null) {
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return $httpCode >= 200 && $httpCode < 300 ? json_decode($response, true) : null;
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return json_decode($response, true);
+    }
+    return null;
+}
+
+function apiGetList($endpoint, $token) {
+    $result = apiRequest($endpoint, 'GET', null, $token);
+    if ($result === null) return null;
+    if (isset($result['data'])) return $result['data'];
+    if (isset($result['items'])) return $result['items'];
+    if (isset($result['results'])) return $result['results'];
+    return is_array($result) ? $result : null;
 }
 
 // Login handler
 if ($page === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
+    $phone = $_POST['phone'] ?? '';
     $password = $_POST['password'] ?? '';
-    
-    if ($username === 'admin' && $password === 'admin123') {
-        $_SESSION['user'] = ['username' => 'admin', 'role' => 'admin'];
-        $_SESSION['token'] = 'demo-token-' . time();
+
+    $result = apiRequest('/api/v1/auth/login', 'POST', [
+        'phone' => $phone,
+        'password' => $password
+    ]);
+
+    if ($result && isset($result['access_token'])) {
+        session_regenerate_id(true);
+        $_SESSION['token'] = $result['access_token'];
+        $_SESSION['user'] = ['username' => $phone, 'role' => 'admin'];
         header('Location: ?page=dashboard');
         exit;
     }
-    $error = 'Identifiants invalides';
+    $apiError = 'Identifiants invalides';
 }
 
 if ($page === 'logout') {
@@ -51,41 +70,41 @@ if ($page === 'logout') {
     exit;
 }
 
-// Demo data
-$stats = [
-    'trips_today' => 342,
-    'revenue_today' => 1250000,
-    'active_drivers' => 847,
-    'active_vehicles' => 892,
-    'incidents' => 12,
-    'users_total' => 4523
-];
+// Fetch data based on current page
+$stats = null;
+$recent_trips = null;
+$drivers = null;
+$vehicles = null;
+$payments = null;
+$incidents = null;
+$users = null;
 
-$recent_trips = [
-    ['id' => 'TRP-001', 'client' => 'Client A', 'route' => 'Owendo → Centre', 'amount' => 1500, 'status' => 'completed'],
-    ['id' => 'TRP-002', 'client' => 'Client B', 'route' => 'Akanda → Libreville', 'amount' => 800, 'status' => 'completed'],
-    ['id' => 'TRP-003', 'client' => 'Client C', 'route' => 'Port-Gentil → Aéroport', 'amount' => 5000, 'status' => 'pending'],
-    ['id' => 'TRP-004', 'client' => 'Client D', 'route' => 'Libreville → Owendo', 'amount' => 1200, 'status' => 'completed'],
-    ['id' => 'TRP-005', 'client' => 'Client E', 'route' => 'Ntoum → Libreville', 'amount' => 600, 'status' => 'cancelled'],
-];
-
-$drivers = [
-    ['id' => 'DRV-001', 'name' => 'Jean M.', 'phone' => '+241 06 XXX XX', 'vehicle' => 'TA-001-GA', 'status' => 'online', 'rating' => 4.8],
-    ['id' => 'DRV-002', 'name' => 'Pierre K.', 'phone' => '+241 07 XXX XX', 'vehicle' => 'TA-002-GA', 'status' => 'online', 'rating' => 4.9],
-    ['id' => 'DRV-003', 'name' => 'Marie L.', 'phone' => '+241 06 XXX XX', 'vehicle' => 'TA-003-GA', 'status' => 'offline', 'rating' => 4.7],
-];
-
-$payments = [
-    ['id' => 'PAY-001', 'method' => 'MoovMoney', 'amount' => 1500, 'status' => 'success', 'time' => '14:32'],
-    ['id' => 'PAY-002', 'method' => 'Airtel', 'amount' => 800, 'status' => 'success', 'time' => '13:45'],
-    ['id' => 'PAY-003', 'method' => 'MoovMoney', 'amount' => 2500, 'status' => 'pending', 'time' => '13:15'],
-    ['id' => 'PAY-004', 'method' => 'Airtel', 'amount' => 1000, 'status' => 'failed', 'time' => '12:30'],
-];
-
-$incidents = [
-    ['id' => 'INC-001', 'type' => 'Signalement client', 'trip' => 'TRP-002', 'status' => 'open', 'time' => '14:20'],
-    ['id' => 'INC-002', 'type' => 'Accident', 'trip' => 'TRP-001', 'status' => 'resolved', 'time' => '10:15'],
-];
+if ($user && $token) {
+    switch ($page) {
+        case 'dashboard':
+            $stats = apiRequest('/api/v1/admin/dashboard/kpis', 'GET', null, $token);
+            $recent_trips = apiGetList('/api/v1/trips?limit=5', $token);
+            break;
+        case 'trips':
+            $recent_trips = apiGetList('/api/v1/trips', $token);
+            break;
+        case 'drivers':
+            $drivers = apiGetList('/api/v1/drivers', $token);
+            break;
+        case 'vehicles':
+            $vehicles = apiGetList('/api/v1/vehicles', $token);
+            break;
+        case 'payments':
+            $payments = apiGetList('/api/v1/payments', $token);
+            break;
+        case 'incidents':
+            $incidents = apiGetList('/api/v1/incidents', $token);
+            break;
+        case 'users':
+            $users = apiGetList('/api/v1/users', $token);
+            break;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -176,6 +195,9 @@ $incidents = [
         
         /* Time */
         .time { font-size: 12px; color: var(--text-secondary); }
+
+        /* Error */
+        .unavailable { color: var(--danger); text-align: center; padding: 24px; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -184,13 +206,13 @@ $incidents = [
         <div class="login-box">
             <h1>🚕 MobiTranz</h1>
             <p>Administration</p>
-            <?php if (isset($error)): ?>
-                <div class="badge badge-danger" style="margin-bottom: 16px; display: block;"><?= $error ?></div>
+            <?php if ($apiError): ?>
+                <div class="badge badge-danger" style="margin-bottom: 16px; display: block;"><?= $apiError ?></div>
             <?php endif; ?>
             <form method="POST">
                 <div class="form-group">
-                    <label>Nom d'utilisateur</label>
-                    <input type="text" name="username" required placeholder="admin">
+                    <label>Téléphone</label>
+                    <input type="text" name="phone" required placeholder="+241 XX XX XX XX">
                 </div>
                 <div class="form-group">
                     <label>Mot de passe</label>
@@ -198,7 +220,7 @@ $incidents = [
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Se connecter</button>
             </form>
-            <p style="margin-top: 16px; font-size: 12;">Demo: admin / admin123</p>
+            <p style="margin-top: 16px; font-size: 12px;">Authentification requise</p>
         </div>
     </div>
 <?php elseif ($page === 'login'): ?>
@@ -250,40 +272,49 @@ $incidents = [
                     <span class="time"><?= date('d/m/Y H:i') ?></span>
                     <div class="user-menu">
                         <span>👤</span>
-                        <span><?= $user['username'] ?></span>
+                        <span><?= htmlspecialchars($user['username'] ?? 'admin') ?></span>
                     </div>
                 </div>
             </header>
             
             <?php if ($page === 'dashboard'): ?>
+                <?php if ($stats === null): ?>
+                    <div class="unavailable">Service indisponible</div>
+                <?php else: ?>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="label">Trajets aujourd'hui</div>
-                        <div class="value"><?= $stats['trips_today'] ?></div>
+                        <div class="value"><?= $stats['trips_today'] ?? 'N/A' ?></div>
                         <div class="trend">↑ 12% vs hier</div>
                     </div>
                     <div class="stat-card">
                         <div class="label">Revenus aujourd'hui</div>
-                        <div class="value"><?= number_format($stats['revenue_today'], 0, ',', ' ') ?> XAF</div>
+                        <div class="value"><?= isset($stats['revenue_today']) ? number_format($stats['revenue_today'], 0, ',', ' ') : 'N/A' ?> XAF</div>
                         <div class="trend">↑ 8% vs hier</div>
                     </div>
                     <div class="stat-card">
                         <div class="label">Chauffeurs en ligne</div>
-                        <div class="value"><?= $stats['active_drivers'] ?></div>
-                        <div class="trend"><?= $stats['active_vehicles'] ?> véhicules</div>
+                        <div class="value"><?= $stats['active_drivers'] ?? 'N/A' ?></div>
+                        <div class="trend"><?= ($stats['active_vehicles'] ?? 'N/A') ?> véhicules</div>
                     </div>
                     <div class="stat-card">
                         <div class="label">Incidents ouverts</div>
-                        <div class="value"><?= $stats['incidents'] ?></div>
+                        <div class="value"><?= $stats['incidents'] ?? 'N/A' ?></div>
                         <div class="trend">↓ 3 vs semaine dernière</div>
                     </div>
                 </div>
+                <?php endif; ?>
                 
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">Trajets Récents</div>
                         <a href="?page=trips" class="btn btn-secondary">Voir tout</a>
                     </div>
+                    <?php if ($recent_trips === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($recent_trips)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun trajet récent</p>
+                    <?php else: ?>
                     <table>
                         <thead>
                             <tr><th>ID</th><th>Client</th><th>Trajet</th><th>Montant</th><th>Statut</th></tr>
@@ -291,23 +322,27 @@ $incidents = [
                         <tbody>
                             <?php foreach ($recent_trips as $trip): ?>
                             <tr>
-                                <td><?= $trip['id'] ?></td>
-                                <td><?= $trip['client'] ?></td>
-                                <td><?= $trip['route'] ?></td>
-                                <td><?= number_format($trip['amount'], 0, ',', ' ') ?> XAF</td>
+                                <td><?= htmlspecialchars($trip['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($trip['client'] ?? $trip['rider_name'] ?? $trip['user_name'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($trip['route'] ?? $trip['pickup_location'] ?? '') ?> → <?= htmlspecialchars($trip['destination'] ?? '') ?></td>
+                                <td><?= isset($trip['amount']) ? number_format($trip['amount'], 0, ',', ' ') : 'N/A' ?> XAF</td>
                                 <td>
-                                    <?php if ($trip['status'] === 'completed'): ?>
+                                    <?php $s = $trip['status'] ?? ''; ?>
+                                    <?php if ($s === 'completed' || $s === 'terminé'): ?>
                                         <span class="badge badge-success">Terminé</span>
-                                    <?php elseif ($trip['status'] === 'pending'): ?>
+                                    <?php elseif ($s === 'pending' || $s === 'en_cours' || $s === 'in_progress'): ?>
                                         <span class="badge badge-warning">En cours</span>
-                                    <?php else: ?>
+                                    <?php elseif ($s === 'cancelled' || $s === 'annulé'): ?>
                                         <span class="badge badge-danger">Annulé</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?= htmlspecialchars($s) ?></span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endif; ?>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
@@ -328,6 +363,11 @@ $incidents = [
                         <div class="card-title">Tous les Trajets</div>
                         <button class="btn btn-primary">+ Nouveau trajet</button>
                     </div>
+                    <?php if ($recent_trips === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($recent_trips)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun trajet</p>
+                    <?php else: ?>
                     <table>
                         <thead>
                             <tr><th>ID</th><th>Client</th><th>Trajet</th><th>Montant</th><th>Statut</th><th>Actions</th></tr>
@@ -335,17 +375,20 @@ $incidents = [
                         <tbody>
                             <?php foreach ($recent_trips as $trip): ?>
                             <tr>
-                                <td><?= $trip['id'] ?></td>
-                                <td><?= $trip['client'] ?></td>
-                                <td><?= $trip['route'] ?></td>
-                                <td><?= number_format($trip['amount'], 0, ',', ' ') ?> XAF</td>
+                                <td><?= htmlspecialchars($trip['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($trip['client'] ?? $trip['rider_name'] ?? $trip['user_name'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($trip['route'] ?? $trip['pickup_location'] ?? '') ?> → <?= htmlspecialchars($trip['destination'] ?? '') ?></td>
+                                <td><?= isset($trip['amount']) ? number_format($trip['amount'], 0, ',', ' ') : 'N/A' ?> XAF</td>
                                 <td>
-                                    <?php if ($trip['status'] === 'completed'): ?>
+                                    <?php $s = $trip['status'] ?? ''; ?>
+                                    <?php if ($s === 'completed' || $s === 'terminé'): ?>
                                         <span class="badge badge-success">Terminé</span>
-                                    <?php elseif ($trip['status'] === 'pending'): ?>
+                                    <?php elseif ($s === 'pending' || $s === 'en_cours' || $s === 'in_progress'): ?>
                                         <span class="badge badge-warning">En cours</span>
-                                    <?php else: ?>
+                                    <?php elseif ($s === 'cancelled' || $s === 'annulé'): ?>
                                         <span class="badge badge-danger">Annulé</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?= htmlspecialchars($s) ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td><a href="#" class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;">Détails</a></td>
@@ -353,6 +396,7 @@ $incidents = [
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
@@ -362,6 +406,11 @@ $incidents = [
                         <div class="card-title">Chauffeurs</div>
                         <button class="btn btn-primary">+ Ajouter chauffeur</button>
                     </div>
+                    <?php if ($drivers === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($drivers)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun chauffeur</p>
+                    <?php else: ?>
                     <table>
                         <thead>
                             <tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Véhicule</th><th>Statut</th><th>Note</th></tr>
@@ -369,20 +418,65 @@ $incidents = [
                         <tbody>
                             <?php foreach ($drivers as $driver): ?>
                             <tr>
-                                <td><?= $driver['id'] ?></td>
-                                <td><?= $driver['name'] ?></td>
-                                <td><?= $driver['phone'] ?></td>
-                                <td><?= $driver['vehicle'] ?></td>
+                                <td><?= htmlspecialchars($driver['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($driver['name'] ?? $driver['full_name'] ?? $driver['first_name'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($driver['phone'] ?? $driver['phone_number'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($driver['vehicle'] ?? $driver['vehicle_plate'] ?? $driver['vehicle_id'] ?? '') ?></td>
                                 <td>
-                                    <span class="badge <?= $driver['status'] === 'online' ? 'badge-success' : 'badge-warning' ?>">
-                                        <?= $driver['status'] === 'online' ? 'En ligne' : 'Hors ligne' ?>
-                                    </span>
+                                    <?php $s = $driver['status'] ?? ''; ?>
+                                    <?php if ($s === 'online' || $s === 'en_ligne' || $s === 'active'): ?>
+                                        <span class="badge badge-success">En ligne</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-warning">Hors ligne</span>
+                                    <?php endif; ?>
                                 </td>
-                                <td><?= $driver['rating'] ?> ⭐</td>
+                                <td><?= $driver['rating'] ?? 'N/A' ?> ⭐</td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($page === 'vehicles'): ?>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Véhicules</div>
+                        <button class="btn btn-primary">+ Ajouter véhicule</button>
+                    </div>
+                    <?php if ($vehicles === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($vehicles)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun véhicule</p>
+                    <?php else: ?>
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>Plaque</th><th>Marque</th><th>Modèle</th><th>Chauffeur</th><th>Statut</th></tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($vehicles as $v): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($v['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($v['plate'] ?? $v['plate_number'] ?? $v['license_plate'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($v['brand'] ?? $v['make'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($v['model'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($v['driver'] ?? $v['driver_name'] ?? '') ?></td>
+                                <td>
+                                    <?php $s = $v['status'] ?? ''; ?>
+                                    <?php if ($s === 'active' || $s === 'available'): ?>
+                                        <span class="badge badge-success">Actif</span>
+                                    <?php elseif ($s === 'maintenance'): ?>
+                                        <span class="badge badge-warning">Maintenance</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?= htmlspecialchars($s) ?></span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
@@ -391,30 +485,37 @@ $incidents = [
                     <div class="card-header">
                         <div class="card-title">Historique des Paiements</div>
                     </div>
+                    <?php if ($payments === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($payments)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun paiement</p>
+                    <?php else: ?>
                     <table>
                         <thead>
-                            <tr><th>ID</th><th>Méthode</th><th>Montant</th><th>Statut</th><th>Heure</th></tr>
+                            <tr><th>ID</th><th>Méthode</th><th>Montant</th><th>Statut</th><th>Date</th></tr>
                         </thead>
                         <tbody>
                             <?php foreach ($payments as $payment): ?>
                             <tr>
-                                <td><?= $payment['id'] ?></td>
-                                <td><?= $payment['method'] ?></td>
-                                <td><?= number_format($payment['amount'], 0, ',', ' ') ?> XAF</td>
+                                <td><?= htmlspecialchars($payment['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($payment['method'] ?? $payment['payment_method'] ?? $payment['type'] ?? '') ?></td>
+                                <td><?= isset($payment['amount']) ? number_format($payment['amount'], 0, ',', ' ') : 'N/A' ?> XAF</td>
                                 <td>
-                                    <?php if ($payment['status'] === 'success'): ?>
+                                    <?php $s = $payment['status'] ?? ''; ?>
+                                    <?php if ($s === 'success' || $s === 'completed' || $s === 'confirmé'): ?>
                                         <span class="badge badge-success">Succès</span>
-                                    <?php elseif ($payment['status'] === 'pending'): ?>
+                                    <?php elseif ($s === 'pending' || $s === 'en_attente'): ?>
                                         <span class="badge badge-warning">En attente</span>
                                     <?php else: ?>
                                         <span class="badge badge-danger">Échec</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= $payment['time'] ?></td>
+                                <td><?= htmlspecialchars($payment['time'] ?? $payment['created_at'] ?? $payment['date'] ?? '') ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
@@ -424,45 +525,92 @@ $incidents = [
                         <div class="card-title">Incidents</div>
                         <button class="btn btn-primary" style="background: var(--danger);">+ Signaler</button>
                     </div>
+                    <?php if ($incidents === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($incidents)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun incident</p>
+                    <?php else: ?>
                     <table>
                         <thead>
-                            <tr><th>ID</th><th>Type</th><th>Trajet</th><th>Statut</th><th>Heure</th></tr>
+                            <tr><th>ID</th><th>Type</th><th>Trajet</th><th>Statut</th><th>Date</th></tr>
                         </thead>
                         <tbody>
                             <?php foreach ($incidents as $incident): ?>
                             <tr>
-                                <td><?= $incident['id'] ?></td>
-                                <td><?= $incident['type'] ?></td>
-                                <td><?= $incident['trip'] ?></td>
+                                <td><?= htmlspecialchars($incident['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($incident['type'] ?? $incident['incident_type'] ?? $incident['title'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($incident['trip'] ?? $incident['trip_id'] ?? '') ?></td>
                                 <td>
-                                    <span class="badge <?= $incident['status'] === 'open' ? 'badge-danger' : 'badge-success' ?>">
-                                        <?= $incident['status'] === 'open' ? 'Ouvert' : 'Résolu' ?>
-                                    </span>
+                                    <?php $s = $incident['status'] ?? ''; ?>
+                                    <?php if ($s === 'open' || $s === 'ouvert'): ?>
+                                        <span class="badge badge-danger">Ouvert</span>
+                                    <?php elseif ($s === 'resolved' || $s === 'résolu' || $s === 'closed'): ?>
+                                        <span class="badge badge-success">Résolu</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?= htmlspecialchars($s) ?></span>
+                                    <?php endif; ?>
                                 </td>
-                                <td><?= $incident['time'] ?></td>
+                                <td><?= htmlspecialchars($incident['time'] ?? $incident['created_at'] ?? $incident['date'] ?? '') ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
             <?php if ($page === 'users'): ?>
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">Utilisateurs (<?= $stats['users_total'] ?>)</div>
+                        <div class="card-title">Utilisateurs <?= $users !== null ? '(' . count($users) . ')' : '' ?></div>
                         <button class="btn btn-primary">+ Ajouter</button>
                     </div>
-                    <p style="color: var(--text-secondary);">Liste des clients et chauffeurs...</p>
+                    <?php if ($users === null): ?>
+                        <div class="unavailable">Service indisponible</div>
+                    <?php elseif (empty($users)): ?>
+                        <p style="color: var(--text-secondary); text-align: center; padding: 24px;">Aucun utilisateur</p>
+                    <?php else: ?>
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Rôle</th><th>Statut</th><th>Inscrit</th></tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $u): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($u['id'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($u['name'] ?? $u['full_name'] ?? $u['first_name'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($u['phone'] ?? $u['phone_number'] ?? '') ?></td>
+                                <td><?= htmlspecialchars($u['role'] ?? $u['user_type'] ?? 'client') ?></td>
+                                <td>
+                                    <?php $s = $u['status'] ?? ''; ?>
+                                    <?php if ($s === 'active' || $s === 'actif'): ?>
+                                        <span class="badge badge-success">Actif</span>
+                                    <?php elseif ($s === 'pending' || $s === 'en_attente'): ?>
+                                        <span class="badge badge-warning">En attente</span>
+                                    <?php elseif ($s === 'blocked' || $s === 'banni'): ?>
+                                        <span class="badge badge-danger">Banni</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-info"><?= htmlspecialchars($s) ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($u['created_at'] ?? $u['date'] ?? $u['created'] ?? '') ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
             <?php if ($page === 'analytics'): ?>
+                <?php
+                $analytics = apiRequest('/api/v1/analytics/summary', 'GET', null, $token);
+                ?>
                 <div class="stats-grid">
-                    <div class="stat-card"><div class="label">Revenus sem.</div><div class="value">8.5M XAF</div></div>
-                    <div class="stat-card"><div class="label">Trajets sem.</div><div class="value">2,450</div></div>
-                    <div class="stat-card"><div class="label">Nouveaux users</div><div class="value">127</div></div>
-                    <div class="stat-card"><div class="label">Note moyenne</div><div class="value">4.7 ⭐</div></div>
+                    <div class="stat-card"><div class="label">Revenus sem.</div><div class="value"><?= isset($analytics['weekly_revenue']) ? number_format($analytics['weekly_revenue'], 0, ',', ' ') : 'N/A' ?> XAF</div></div>
+                    <div class="stat-card"><div class="label">Trajets sem.</div><div class="value"><?= number_format($analytics['weekly_trips'] ?? 0, 0, ',', ' ') ?></div></div>
+                    <div class="stat-card"><div class="label">Nouveaux users</div><div class="value"><?= $analytics['new_users'] ?? 'N/A' ?></div></div>
+                    <div class="stat-card"><div class="label">Note moyenne</div><div class="value"><?= $analytics['avg_rating'] ?? 'N/A' ?> ⭐</div></div>
                 </div>
                 <div class="card"><div class="card-title">Graphiques Analytics</div><div class="chart">Visualisation des données</div></div>
             <?php endif; ?>

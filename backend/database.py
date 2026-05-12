@@ -1,16 +1,9 @@
-# ============================================================
-# Configuration Base de Données MobiTranz
-# Fichier : backend/database.py
-# Description : Connexion SQLite avec SQLAlchemy (compatible dev local)
-# ============================================================
-
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from backend.config import settings
 
-# Création du moteur de base de données (SQLite pour dev local)
 engine = create_async_engine(
-    "sqlite+aiosqlite:///./mobitranz.db",
+    settings.database_url,
     echo=settings.debug,
 )
 

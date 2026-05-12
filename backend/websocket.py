@@ -264,21 +264,42 @@ class ConnectionManager:
             await self.broadcast(message, channel="notifications")
 
 
-from datetime import datetime, timezone
-
 manager = ConnectionManager()
 
 websocket_router = APIRouter()
 
 
-@websocket_router.websocket("/ws/{channel}")
-async def websocket_endpoint(websocket: WebSocket, channel: str):
-    """Endpoint WebSocket principal.
+async def verify_ws_token(token: str) -> Optional[dict]:
+    from backend.services.auth_service import auth_service
+    from backend.redis_client import redis_client
 
-    Args:
-        websocket: Connexion WebSocket
-        channel: Type de channel
-    """
+    payload = auth_service.verify_token(token)
+    if not payload:
+        return None
+    if payload.get("type") != "access":
+        return None
+    if redis_client.redis:
+        blacklisted = await redis_client.redis.exists(f"token_blacklist:{token}")
+        if blacklisted:
+            return None
+    return payload
+
+
+@websocket_router.websocket("/ws/{channel}")
+async def websocket_endpoint(websocket: WebSocket, channel: str, token: str = None):
+    token = token or websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Token JWT requis")
+        return
+
+    payload = await verify_ws_token(token)
+    if not payload:
+        await websocket.close(code=4001, reason="Token JWT invalide ou expiré")
+        return
+
+    user_id = payload.get("sub")
+    manager.register_user(user_id, websocket)
+
     await manager.connect(websocket, channel)
 
     try:
@@ -302,11 +323,6 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
                     room = message.get("room")
                     if room:
                         manager.leave_room(websocket, room)
-
-                elif action == "register":
-                    user_id = message.get("user_id")
-                    if user_id:
-                        manager.register_user(user_id, websocket)
 
                 else:
                     logger.warning("Action WebSocket inconnue", action=action)

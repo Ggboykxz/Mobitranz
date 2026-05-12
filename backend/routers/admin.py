@@ -628,7 +628,7 @@ async def get_audit_logs(
     if action:
         query = query.where(AuditLog.action.contains(action))
 
-    query = query.order_by(AuditLog.timestamp.desc()).limit(limit).offset(offset)
+    query = query.order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
 
     result = await db.execute(query)
     logs = result.scalars().all()
@@ -642,7 +642,7 @@ async def get_audit_logs(
                 "resource": l.resource,
                 "ip_address": l.ip_address,
                 "result": l.result,
-                "timestamp": l.timestamp.isoformat() if l.timestamp else None,
+                "timestamp": l.created_at.isoformat() if l.created_at else None,
             }
             for l in logs
         ],

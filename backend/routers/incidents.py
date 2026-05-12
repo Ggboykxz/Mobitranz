@@ -12,6 +12,8 @@ import structlog
 
 from backend.database import get_db
 from backend.models.incident import Incident, IncidentType, IncidentStatus
+from backend.deps.auth_deps import get_current_user
+from backend.models.user import User
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/incidents", tags=["Incidents"])
@@ -27,6 +29,7 @@ async def report_incident(
     longitude: float = None,
     location: str = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Signale un incident pendant un trajet."""
     try:
@@ -59,7 +62,7 @@ async def report_incident(
 
 
 @router.get("/{incident_id}")
-async def get_incident(incident_id: str, db: AsyncSession = Depends(get_db)):
+async def get_incident(incident_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère les détails d'un incident."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = result.scalar_one_or_none()
@@ -73,7 +76,7 @@ async def get_incident(incident_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{incident_id}/acknowledge")
-async def acknowledge_incident(incident_id: str, db: AsyncSession = Depends(get_db)):
+async def acknowledge_incident(incident_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Acquitte un incident."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = result.scalar_one_or_none()
@@ -97,6 +100,7 @@ async def escalate_incident(
     escalate_to: str,
     reason: str = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Escalade un incident aux autorités."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
@@ -127,6 +131,7 @@ async def resolve_incident(
     resolution: str,
     resolved_by: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Résout un incident."""
     result = await db.execute(select(Incident).where(Incident.id == incident_id))
@@ -155,6 +160,7 @@ async def list_incidents(
     status_filter: str = None,
     type_filter: str = None,
     limit: int = 50,
+    current_user: User = Depends(get_current_user),
 ):
     """Liste les incidents avec filtres."""
     query = select(Incident)
@@ -181,7 +187,7 @@ async def list_incidents(
 
 
 @router.get("/open")
-async def get_open_incidents(db: AsyncSession = Depends(get_db)):
+async def get_open_incidents(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Retourne tous les incidents ouverts."""
     result = await db.execute(
         select(Incident).where(

@@ -4,17 +4,23 @@
 # Description : Application FastAPI principale
 # ============================================================
 
+import os
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.docs import Redoc
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import structlog
 from contextlib import asynccontextmanager
 
 from backend.config import settings
 from backend.database import init_db, engine
 from backend.redis_client import redis_client
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=os.getenv("APP_ENV", "development"),
+        traces_sample_rate=0.2,
+    )
 
 # ============================================================
 # Configuration OpenAPI
@@ -51,7 +57,7 @@ from backend.routers import (
 from backend.websocket import websocket_router
 
 # Import Middleware
-from backend.middleware.security import SecurityHeadersMiddleware, RateLimitMiddleware
+from backend.middleware.security import SecurityHeadersMiddleware
 
 logger = structlog.get_logger()
 
@@ -140,35 +146,36 @@ Authorization: Bearer <token>
 )
 
 
+ALLOWED_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=100)
+from backend.middleware.security import RedisRateLimitMiddleware
+app.add_middleware(RedisRateLimitMiddleware, requests_per_minute=settings.rate_limit_general_requests, redis_client=redis_client)
 
+API_PREFIX = "/api/v1"
 
-# Include routers
-app.include_router(auth.router, prefix="/auth")
-app.include_router(trips.router, prefix="/trips")
-app.include_router(payments.router, prefix="/payments")
-app.include_router(drivers.router, prefix="/drivers")
-app.include_router(vehicles.router, prefix="/vehicles")
-app.include_router(voice.router, prefix="/voice")
-app.include_router(incidents.router, prefix="/incidents")
-app.include_router(analytics.router, prefix="/analytics")
-app.include_router(users.router, prefix="/users")
-app.include_router(admin.router, prefix="/admin")
-app.include_router(websocket_router, tags=["WebSocket"])
+app.include_router(auth.router, prefix=f"{API_PREFIX}/auth")
+app.include_router(trips.router, prefix=f"{API_PREFIX}/trips")
+app.include_router(payments.router, prefix=f"{API_PREFIX}/payments")
+app.include_router(drivers.router, prefix=f"{API_PREFIX}/drivers")
+app.include_router(vehicles.router, prefix=f"{API_PREFIX}/vehicles")
+app.include_router(voice.router, prefix=f"{API_PREFIX}/voice")
+app.include_router(incidents.router, prefix=f"{API_PREFIX}/incidents")
+app.include_router(analytics.router, prefix=f"{API_PREFIX}/analytics")
+app.include_router(users.router, prefix=f"{API_PREFIX}/users")
+app.include_router(admin.router, prefix=f"{API_PREFIX}/admin")
+app.include_router(websocket_router, prefix=f"{API_PREFIX}", tags=["WebSocket"])
 
 
 @app.get("/")

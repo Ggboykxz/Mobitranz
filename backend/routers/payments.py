@@ -13,6 +13,8 @@ import structlog
 
 from backend.config import settings
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
+from backend.models.user import User
 from backend.schemas.payment import (
     PaymentCreate,
     PaymentResponse,
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 @router.post(
     "/initiate", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED
 )
-async def initiate_payment(data: PaymentCreate, db: AsyncSession = Depends(get_db)):
+async def initiate_payment(data: PaymentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Initie un paiement pour un trajet.
 
     Crée un enregistrement de paiement et initiates l'appel API
@@ -99,6 +101,7 @@ async def payment_webhook(
     db: AsyncSession = Depends(get_db),
     x_signature: str = Header(None, alias="X-Signature"),
     x_provider: str = Header(None, alias="X-Provider"),
+    current_user: User = Depends(get_current_user),
 ):
     """Webhook pour recevoir les callbacks des providers de paiement.
 
@@ -170,7 +173,7 @@ async def payment_webhook(
 
 @router.post("/confirm", response_model=PaymentResponse)
 async def confirm_payment(
-    data: PaymentConfirmRequest, db: AsyncSession = Depends(get_db)
+    data: PaymentConfirmRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Confirme manuellement un paiement (pour fallback ou test).
 
@@ -214,7 +217,7 @@ async def confirm_payment(
 
 
 @router.get("/{payment_id}", response_model=PaymentResponse)
-async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db)):
+async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère les détails d'un paiement."""
     result = await db.execute(select(Payment).where(Payment.id == payment_id))
     payment = result.scalar_one_or_none()
@@ -228,7 +231,7 @@ async def get_payment(payment_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/trip/{trip_id}")
-async def get_payment_by_trip(trip_id: str, db: AsyncSession = Depends(get_db)):
+async def get_payment_by_trip(trip_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère le paiement d'un trajet."""
     result = await db.execute(select(Payment).where(Payment.trip_id == trip_id))
     payment = result.scalar_one_or_none()

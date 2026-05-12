@@ -115,16 +115,28 @@ def validate_phone_gabon(phone: str) -> bool:
     return any(re.match(p, phone) for p in patterns)
 
 
-# Injection SQL prevention (basic)
-SQL_KEYWORDS = [
-    'DROP', 'DELETE', 'UPDATE', 'INSERT', 'CREATE', 'ALTER',
-    'UNION', 'EXEC', 'EXECUTE', 'TRUNCATE'
+import re
+
+SQL_INJECTION_PATTERNS = [
+    r'(\b|\s)(DROP|DELETE|UPDATE|INSERT|CREATE|ALTER|TRUNCATE|EXEC|EXECUTE)\s',
+    r'(\b|\s)UNION\s.*\bSELECT\b',
+    r'(\b|\s)SELECT\s.*\bFROM\b.*\bWHERE\b',
+    r'(\b|\s)OR\s+\d+\s*=\s*\d+',
+    r'(\b|\s)AND\s+\d+\s*=\s*\d+',
+    r'--',
+    r'/\*.*\*/',
+    r';\s*(DROP|DELETE|UPDATE|INSERT|CREATE|ALTER|TRUNCATE|EXEC)',
+    r'xp_cmdshell',
+    r'WAITFOR\s+DELAY',
+    r'BENCHMARK\s*\(',
+    r'CHAR\s*\(',
+    r'0x[0-9a-fA-F]{4,}',
 ]
 
 def contains_sql_injection(text: str) -> bool:
-    """Détecte une injection SQL potentielle."""
-    text_upper = text.upper()
-    return any(keyword in text_upper for keyword in SQL_KEYWORDS)
+    if not text:
+        return False
+    return any(re.search(p, text, re.IGNORECASE) for p in SQL_INJECTION_PATTERNS)
 
 
 def detect_xss(text: str) -> bool:

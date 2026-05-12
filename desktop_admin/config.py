@@ -9,7 +9,7 @@ import os
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 SESSION_TIMEOUT = 3600
 

@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # Configuration AES Master Key (32 bytes hex)
     aes_master_key: Optional[str] = Field(default=None, alias="AES_MASTER_KEY")
 
+    # Configuration Africa's Talking (SMS Gabon)
+    africastalking_api_key: Optional[str] = Field(default=None, alias="AFRICASTALKING_API_KEY")
+    africastalking_username: Optional[str] = Field(default=None, alias="AFRICASTALKING_USERNAME")
+    africastalking_sender_id: Optional[str] = Field(default=None, alias="AFRICASTALKING_SENDER_ID")
+
 
 # Instance globale des paramètres
 settings = Settings()

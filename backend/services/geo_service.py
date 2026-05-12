@@ -4,6 +4,7 @@
 # Description : Géolocalisation, zones et calcul de tarifs
 # ============================================================
 
+from datetime import datetime
 import math
 from typing import Optional, List, Tuple
 import structlog
@@ -99,25 +100,12 @@ class GeoService:
     async def detect_zone(
         self, db: AsyncSession, latitude: float, longitude: float
     ) -> Optional[Zone]:
-        """Détecte la zone dans laquelle se trouve un point géographique.
-
-        Args:
-            db: Session de base de données
-            latitude: Latitude du point
-            longitude: Longitude du point
-
-        Returns:
-            Zone: Zone détectée ou None
-        """
         result = await db.execute(select(Zone))
         zones = result.scalars().all()
 
         for zone in zones:
-            if zone.polygon_coordinates:
-                if self._is_point_in_polygon(
-                    latitude, longitude, zone.polygon_coordinates
-                ):
-                    return zone
+            if zone.contains_point(latitude, longitude):
+                return zone
 
         return None
 
@@ -250,8 +238,8 @@ class GeoService:
             result = await db.execute(select(Zone).where(Zone.id == departure_zone_id))
             zone = result.scalar_one_or_none()
 
-            if zone and zone.tariff_base:
-                base_tariff_per_km = zone.tariff_base
+            if zone and zone.base_price:
+                base_tariff_per_km = int(zone.base_price)
 
         gross_amount = base_tariff_per_km * distance_km
 
@@ -307,7 +295,5 @@ class GeoService:
 
         return min_distance > tolerance_meters
 
-
-from datetime import datetime
 
 geo_service = GeoService()

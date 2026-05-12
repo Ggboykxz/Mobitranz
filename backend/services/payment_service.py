@@ -5,13 +5,16 @@
 # ============================================================
 
 from typing import Optional
-import httpx
 import structlog
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.models.payment import Payment, PaymentStatus, PaymentMethod
+from backend.tasks.payment_tasks import (
+    initiate_moovmoney_payment_task,
+    initiate_airtelmoney_payment_task,
+)
 
 logger = structlog.get_logger()
 
@@ -20,13 +23,16 @@ class PaymentService:
     """Service de paiement MobiTranz.
 
     Gère l'initiation et la vérification des paiements
-    via MoovMoney et Airtel Money.
+    via MoovMoney et Airtel Money. Les appels API sont
+    délégués à Celery pour un traitement asynchrone.
     """
 
     async def initiate_moovmoney_payment(
         self, phone: str, amount: int, reference: str
     ) -> dict:
-        """Initie un paiement MoovMoney.
+        """Initie un paiement MoovMoney de manière asynchrone.
+
+        Délègue l'appel HTTP à une tâche Celery.
 
         Args:
             phone: Numéro de téléphone au format +241XXXXXXXX
@@ -34,43 +40,11 @@ class PaymentService:
             reference: Référence unique du paiement
 
         Returns:
-            dict: Réponse de l'API MoovMoney
+            dict: Statut de soumission de la tâche
         """
-        if not settings.moovmoney_api_url:
-            logger.warning("MoovMoney API non configurée")
-            return {"status": "error", "message": "Service de paiement non disponible"}
-
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"{settings.moovmoney_api_url}/payments/initiate",
-                    json={
-                        "phone": phone,
-                        "amount": amount,
-                        "reference": reference,
-                        "callback_url": f"https://api.mobitranz.ga/payments/webhook",
-                    },
-                    headers={
-                        "Authorization": f"Bearer {settings.moovmoney_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=30.0,
-                )
-
-                data = response.json()
-                logger.info(
-                    "Paiement MoovMoney initié",
-                    reference=reference,
-                    status=data.get("status"),
-                )
-                return data
-
-            except httpx.TimeoutException:
-                logger.error("Timeout MoovMoney", reference=reference)
-                return {"status": "error", "message": "Délai d'attente dépassé"}
-            except Exception as e:
-                logger.error("Erreur MoovMoney", error=str(e))
-                return {"status": "error", "message": str(e)}
+        task = initiate_moovmoney_payment_task.delay(phone, amount, reference)
+        logger.info("Tâche MoovMoney soumise", reference=reference, task_id=task.id)
+        return {"status": "submitted", "task_id": task.id}
 
     async def check_moovmoney_status(self, transaction_id: str) -> dict:
         """Vérifie le statut d'un paiement MoovMoney.
@@ -84,6 +58,7 @@ class PaymentService:
         if not settings.moovmoney_api_url:
             return {"status": "error"}
 
+        import httpx
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(
@@ -101,7 +76,9 @@ class PaymentService:
     async def initiate_airtelmoney_payment(
         self, phone: str, amount: int, reference: str
     ) -> dict:
-        """Initie un paiement Airtel Money.
+        """Initie un paiement Airtel Money de manière asynchrone.
+
+        Délègue l'appel HTTP à une tâche Celery.
 
         Args:
             phone: Numéro de téléphone au format +241XXXXXXXX
@@ -109,42 +86,11 @@ class PaymentService:
             reference: Référence unique du paiement
 
         Returns:
-            dict: Réponse de l'API Airtel
+            dict: Statut de soumission de la tâche
         """
-        if not settings.airtelmoney_api_url:
-            logger.warning("Airtel Money API non configurée")
-            return {"status": "error", "message": "Service de paiement non disponible"}
-
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(
-                    f"{settings.airtelmoney_api_url}/payments/initiate",
-                    json={
-                        "phone": phone,
-                        "amount": amount,
-                        "reference": reference,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {settings.airtelmoney_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=30.0,
-                )
-
-                data = response.json()
-                logger.info(
-                    "Paiement Airtel Money initiated",
-                    reference=reference,
-                    status=data.get("status"),
-                )
-                return data
-
-            except httpx.TimeoutException:
-                logger.error("Timeout Airtel Money", reference=reference)
-                return {"status": "error", "message": "Délai d'attente dépassé"}
-            except Exception as e:
-                logger.error("Erreur Airtel Money", error=str(e))
-                return {"status": "error", "message": str(e)}
+        task = initiate_airtelmoney_payment_task.delay(phone, amount, reference)
+        logger.info("Tâche Airtel Money soumise", reference=reference, task_id=task.id)
+        return {"status": "submitted", "task_id": task.id}
 
     async def create_payment_record(
         self,

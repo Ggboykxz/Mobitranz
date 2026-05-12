@@ -4,7 +4,6 @@
 # Description : Intégration avec les API ministérielles (Transport, Intérieur)
 # ============================================================
 
-import httpx
 import structlog
 from datetime import datetime, timezone
 from typing import Optional
@@ -16,6 +15,11 @@ from backend.models.trip import Trip, TripStatus
 from backend.models.payment import Payment, PaymentStatus
 from backend.models.incident import Incident, IncidentStatus
 from backend.models.driver import Driver
+from backend.tasks.ministry_tasks import (
+    send_transport_report_task,
+    send_interior_report_task,
+    send_sos_alert_task,
+)
 
 logger = structlog.get_logger()
 
@@ -24,82 +28,43 @@ class MinistryService:
     """Service d'intégration avec les ministères gabonais.
 
     Gère les échanges de données avec le Ministère du Transport
-    et le Ministère de l'Intérieur.
+    et le Ministère de l'Intérieur. Les appels HTTP sont délégués
+    à Celery pour un traitement asynchrone.
     """
 
     async def send_transport_report(self, data: dict) -> bool:
-        """Envoie un rapport au Ministère des Transports.
+        """Envoie un rapport au Ministère des Transports via Celery.
 
         Args:
             data: Données du rapport
 
         Returns:
-            bool: True si l'envoi a réussi
+            bool: True si la tâche a été soumise
         """
         if not settings.ministry_transport_webhook:
             logger.warning("Ministère Transport webhook non configuré")
             return False
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    settings.ministry_transport_webhook,
-                    json=data,
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-API-Key": settings.ministry_api_key or "",
-                    },
-                    timeout=30.0,
-                )
-
-                response.raise_for_status()
-
-                logger.info("Rapport envoyé au Ministère des Transports")
-                return True
-
-        except httpx.TimeoutException:
-            logger.error("Timeout envoi rapport Ministère Transport")
-            return False
-        except Exception as e:
-            logger.error("Erreur envoi rapport Ministère Transport", error=str(e))
-            return False
+        send_transport_report_task.delay(data)
+        logger.info("Rapport Transport soumis à Celery")
+        return True
 
     async def send_interior_report(self, data: dict) -> bool:
-        """Envoie un rapport au Ministère de l'Intérieur.
+        """Envoie un rapport au Ministère de l'Intérieur via Celery.
 
         Args:
             data: Données du rapport
 
         Returns:
-            bool: True si l'envoi a réussi
+            bool: True si la tâche a été soumise
         """
         if not settings.ministry_interior_webhook:
             logger.warning("Ministère Intérieur webhook non configuré")
             return False
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    settings.ministry_interior_webhook,
-                    json=data,
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-API-Key": settings.ministry_api_key or "",
-                    },
-                    timeout=30.0,
-                )
-
-                response.raise_for_status()
-
-                logger.info("Rapport envoyé au Ministère de l'Intérieur")
-                return True
-
-        except httpx.TimeoutException:
-            logger.error("Timeout envoi rapport Ministère Intérieur")
-            return False
-        except Exception as e:
-            logger.error("Erreur envoi rapport Ministère Intérieur", error=str(e))
-            return False
+        send_interior_report_task.delay(data)
+        logger.info("Rapport Intérieur soumis à Celery")
+        return True
 
     async def send_sos_alert(
         self,
@@ -109,7 +74,7 @@ class MinistryService:
         longitude: float,
         timestamp: datetime,
     ) -> bool:
-        """Envoie une alerte SOS au Ministère de l'Intérieur.
+        """Envoie une alerte SOS au Ministère de l'Intérieur via Celery.
 
         Args:
             incident_id: ID de l'incident
@@ -119,18 +84,13 @@ class MinistryService:
             timestamp: Horodatage
 
         Returns:
-            bool: True si l'envoi a réussi
+            bool: True si la tâche a été soumise
         """
-        alert_data = {
-            "incident_type": "SOS",
-            "incident_id": incident_id,
-            "trip_id": trip_id,
-            "location": {"latitude": latitude, "longitude": longitude},
-            "timestamp": timestamp.isoformat(),
-            "source": "MobiTranz",
-        }
-
-        return await self.send_interior_report(alert_data)
+        send_sos_alert_task.delay(
+            incident_id, trip_id, latitude, longitude, timestamp.isoformat()
+        )
+        logger.info("Alerte SOS soumise à Celery", incident_id=incident_id)
+        return True
 
     async def generate_monthly_transport_report(
         self, db: AsyncSession, year: int, month: int

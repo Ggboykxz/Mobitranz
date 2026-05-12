@@ -5,6 +5,7 @@
 # ============================================================
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ from backend.schemas.auth import (
     TOTPDisable,
 )
 from backend.services.auth_service import auth_service
+from backend.services.sms_service import sms_service
 from backend.models.user import User, UserRole, UserStatus
 
 logger = structlog.get_logger()
@@ -118,8 +120,6 @@ async def refresh_token(data: RefreshTokenRequest, db: AsyncSession = Depends(ge
 
     user_id = payload.get("sub")
 
-    from sqlalchemy import select
-
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -190,12 +190,20 @@ async def setup_totp(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    """Déconnecte l'utilisateur (blacklist le token)."""
+async def logout(
+    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
     from backend.redis_client import redis_client
+    from backend.config import settings
 
-    logger.info("Déconnexion", user_id=current_user.id)
+    token = credentials.credentials
+    if redis_client.redis:
+        import time
+        ttl = settings.access_token_expire_minutes * 60
+        await redis_client.redis.setex(f"token_blacklist:{token}", ttl, "1")
 
+    logger.info("Déconnexion réussie", user_id=current_user.id)
     return {"message": "Déconnexion réussie"}
 
 
@@ -213,6 +221,7 @@ async def request_password_reset(phone: str, db: AsyncSession = Depends(get_db))
         user.reset_code = code
         user.reset_code_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
         await db.commit()
+        await sms_service.send_sms(phone, f"Votre code de réinitialisation MobiTranz : {code}")
         logger.info("Code reset envoyé", user_id=user.id, phone=phone)
 
     return {"message": "Si le numéro existe, un code sera envoyé par SMS"}

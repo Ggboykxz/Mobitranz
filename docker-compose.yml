@@ -16,10 +16,10 @@ services:
       - "8000:8000"
     environment:
       - APP_ENV=production
-      - DATABASE_URL=postgresql://mobitranz:mobitranz@db:5432/mobitranz
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://mobitranz:${DB_PASSWORD:-mobitranz}@db:5432/mobitranz}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-changeme-secret-key}
-      - JWT_SECRET=${JWT_SECRET:-changeme-jwt-secret}
+      - SECRET_KEY=${SECRET_KEY:?error:SECRET_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?error:JWT_SECRET is required}
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +68,34 @@ services:
     restart: unless-stopped
     networks:
       - mobitranz-network
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mobitranz-celery
+    command: celery -A backend.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://mobitranz:${DB_PASSWORD:-mobitranz}@db:5432/mobitranz}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?error:SECRET_KEY is required}
+      - JWT_SECRET=${JWT_SECRET:?error:JWT_SECRET is required}
+    depends_on:
+      - redis
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A backend.tasks.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - mobitranz-network
+    volumes:
+      - ./logs:/app/logs
 
   # Admin Desktop (optional)
   desktop-admin:

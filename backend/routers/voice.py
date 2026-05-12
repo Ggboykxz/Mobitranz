@@ -4,7 +4,7 @@
 # Description : Routes /voice/* (proposition vocale, transcription)
 # ============================================================
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timezone
@@ -13,6 +13,7 @@ import structlog
 
 from backend.database import get_db
 from backend.deps.auth_deps import get_current_user
+from backend.models.user import User
 from backend.models.voice_proposal import VoiceProposal
 from backend.services.voice_service import voice_proposal_service
 from backend.services.transcription_service import transcription_service
@@ -25,8 +26,9 @@ router = APIRouter(prefix="/voice", tags=["Voice"])
 async def submit_voice_proposal(
     client_id: str,
     driver_id: str,
-    audio_base64: str,
+    audio_base64: str = Body(...),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Soumet une proposition vocale.
 
@@ -47,7 +49,7 @@ async def submit_voice_proposal(
 
     proposal = await voice_proposal_service.create_voice_proposal(
         db=db,
-        trip_id=f"trip_temp_{client_id[:8]}",
+        trip_id=None,
         client_id=client_id,
         transcription=transcription,
     )
@@ -69,7 +71,10 @@ async def submit_voice_proposal(
 
 
 @router.post("/transcribe")
-async def transcribe_audio(audio_base64: str):
+async def transcribe_audio(
+    audio_base64: str = Body(...),
+    current_user: User = Depends(get_current_user),
+):
     """Transcrit un audio sans créer de proposition."""
     try:
         audio_data = base64.b64decode(audio_base64)
@@ -93,7 +98,7 @@ async def transcribe_audio(audio_base64: str):
 
 
 @router.get("/zones")
-async def get_known_zones():
+async def get_known_zones(current_user: User = Depends(get_current_user)):
     """Retourne la liste des zones connues."""
     return {
         "zones": list(voice_proposal_service.KNOWN_ZONES.keys()),
@@ -105,7 +110,7 @@ async def get_known_zones():
 async def validate_proposal(
     proposal_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: object = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Valide manuellement une proposition."""
     result = await db.execute(

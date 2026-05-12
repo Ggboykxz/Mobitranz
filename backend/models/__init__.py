@@ -13,6 +13,9 @@ from backend.models.recording import Recording
 from backend.models.voice_proposal import VoiceProposal
 from backend.models.incident import Incident
 from backend.models.audit_log import AuditLog
+from backend.models.notification import Notification
+from backend.models.zone import Zone
+from backend.models.raspberry_pi import RaspberryPiUnit
 
 __all__ = [
     "User",
@@ -24,4 +27,7 @@ __all__ = [
     "VoiceProposal",
     "Incident",
     "AuditLog",
+    "Notification",
+    "Zone",
+    "RaspberryPiUnit",
 ]

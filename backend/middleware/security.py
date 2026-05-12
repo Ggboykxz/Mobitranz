@@ -50,59 +50,43 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Middleware pour le rate limiting.
-
-    Limite le nombre de requêtes par IP pour éviter les abus.
-    """
-
-    def __init__(self, app, requests_per_minute: int = 60):
+class RedisRateLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, requests_per_minute: int = 60, redis_client=None):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.request_counts = {}
-        self._lock = asyncio.Lock()
+        self.redis_client = redis_client
 
     def _get_client_ip(self, request: Request) -> str:
-        """Récupère l'IP client de manière sécurisée."""
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             client_ip = forwarded_for.split(",")[0].strip()
             if client_ip:
                 return client_ip
-
         if request.client and request.client.host:
             return request.client.host
         return "unknown"
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        """Traitement de la requête avec rate limiting."""
         client_ip = self._get_client_ip(request)
+        minute_window = int(time.time() / 60)
+        key = f"ratelimit:{client_ip}:{minute_window}"
 
-        current_time = int(time.time() / 60)
-
-        key = f"{client_ip}:{current_time}"
-
-        async with self._lock:
-            if key in self.request_counts:
-                if self.request_counts[key] >= self.requests_per_minute:
-                    logger.warning("Rate limit exceeded", ip=client_ip)
+        if self.redis_client and self.redis_client.redis:
+            try:
+                current = await self.redis_client.redis.incr(key)
+                if current == 1:
+                    await self.redis_client.redis.expire(key, 60)
+                if current > self.requests_per_minute:
+                    logger.warning("Rate limit exceeded (Redis)", ip=client_ip)
                     from fastapi.responses import JSONResponse
-
                     return JSONResponse(
                         status_code=429,
                         content={"detail": "Too many requests. Please try again later."},
+                        headers={"Retry-After": "60"},
                     )
-                self.request_counts[key] += 1
-            else:
-                self.request_counts[key] = 1
-
-            self.request_counts = {
-                k: v
-                for k, v in self.request_counts.items()
-                if k.endswith(str(current_time))
-            }
+            except Exception:
+                pass
 
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
-
         return response

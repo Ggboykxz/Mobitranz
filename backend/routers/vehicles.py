@@ -7,10 +7,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import structlog
 
 from backend.database import get_db
+from backend.deps.auth_deps import get_current_user
+from backend.models.user import User
 from backend.models.vehicle import Vehicle, VehicleStatus
 from backend.services.qr_service import qr_service
 from backend.services.camera_service import camera_service
@@ -29,9 +31,9 @@ async def register_vehicle(
     total_seats: int = 4,
     driver_id: str = None,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Enregistre un nouveau véhicule."""
-    # Vérifier si la plaque existe déjà
     result = await db.execute(
         select(Vehicle).where(Vehicle.plate_number == plate_number)
     )
@@ -64,7 +66,7 @@ async def register_vehicle(
 
 
 @router.get("/{vehicle_id}")
-async def get_vehicle(vehicle_id: str, db: AsyncSession = Depends(get_db)):
+async def get_vehicle(vehicle_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Récupère les détails d'un véhicule."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
     vehicle = result.scalar_one_or_none()
@@ -90,7 +92,8 @@ async def get_vehicle(vehicle_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{vehicle_id}/qr")
 async def generate_vehicle_qr(
-    vehicle_id: str, trip_id: str, db: AsyncSession = Depends(get_db)
+    vehicle_id: str, trip_id: str, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Génère un QR Code dynamique pour un véhicule/trajet."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
@@ -101,13 +104,9 @@ async def generate_vehicle_qr(
             status_code=status.HTTP_404_NOT_FOUND, detail="Véhicule non trouvé"
         )
 
-    # Générer le QR Code
     qr_image = await qr_service.generate_qr_code(vehicle_id, trip_id)
 
-    # Mettre à jour la expire
     vehicle.qr_code = qr_image
-    from datetime import timedelta
-
     vehicle.qr_code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
 
     await db.commit()
@@ -118,7 +117,7 @@ async def generate_vehicle_qr(
 
 
 @router.post("/{vehicle_id}/camera/enable")
-async def enable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db)):
+async def enable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Active la caméra embarquée."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
     vehicle = result.scalar_one_or_none()
@@ -145,7 +144,7 @@ async def enable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{vehicle_id}/camera/disable")
-async def disable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db)):
+async def disable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Désactive la caméra."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
     vehicle = result.scalar_one_or_none()
@@ -165,7 +164,8 @@ async def disable_camera(vehicle_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/{vehicle_id}/location")
 async def update_location(
-    vehicle_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_db)
+    vehicle_id: str, lat: float, lon: float, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Met à jour la localisation du véhicule."""
     result = await db.execute(select(Vehicle).where(Vehicle.id == vehicle_id))
@@ -186,7 +186,7 @@ async def update_location(
 
 
 @router.get("/")
-async def list_vehicles(db: AsyncSession = Depends(get_db), limit: int = 50):
+async def list_vehicles(db: AsyncSession = Depends(get_db), limit: int = 50, current_user: User = Depends(get_current_user)):
     """Liste tous les véhicules."""
     result = await db.execute(select(Vehicle).limit(limit))
     vehicles = result.scalars().all()

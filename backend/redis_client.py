@@ -32,6 +32,10 @@ class RedisClient:
         if self._redis:
             await self._redis.close()
 
+    @property
+    def redis(self) -> Optional[redis.Redis]:
+        return self._redis
+
     async def get_client(self) -> redis.Redis:
         """Retourne le client Redis connecté.
 
@@ -43,6 +47,10 @@ class RedisClient:
         """
         if not self._redis:
             raise RuntimeError("Redis non connecté. Appeler connect() d'abord")
+        return self._redis
+
+    async def safe_get_client(self) -> Optional[redis.Redis]:
+        """Retourne le client Redis ou None si non connecté."""
         return self._redis
 
     async def set_session(

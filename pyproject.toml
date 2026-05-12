@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mobitranz"
+version = "1.0.0"
+description = "MobiTranz - Digital payment platform for Gabonese transport"
+requires-python = ">=3.12"
+license = {text = "Proprietary"}
+authors = [
+    {name = "MobiTranz Team", email = "support@mobitranz.ga"},
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = ["alembic/versions/*", "backend/tests/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+include = '\.py$'
+extend-exclude = '''
+/(
+    alembic/versions/
+    | backend/tests/
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_configs = true
+exclude = [
+    "alembic/versions/*",
+    "backend/tests/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = [
+    "backend/tests/*",
+    "alembic/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+]

@@ -91,7 +91,7 @@ class TranscriptionService:
         import wave
         import vosk
 
-        model = vosk.ModelLoader().Load("model-fr")
+        model = vosk.Model("model-fr")
         recognizer = vosk.KaldiRecognizer(model, 16000)
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
