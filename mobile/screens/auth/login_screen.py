@@ -1,155 +1,152 @@
-# ============================================================
-# Écran Connexion Mobile
-# Fichier : mobile/screens/auth/login_screen.py
-# Description : Écran de connexion avec téléphone + mot de passe
-# ============================================================
-
 import asyncio
-from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.popup import Popup
 from kivy.clock import Clock
-from mobile.theme.colors import Colors
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.button import MDRaisedButton, MDTextButton
+from kivymd.uix.label import MDLabel
+from mobile.screens.base_screen import BaseScreen
+from mobile.services.api_client import api_client
 from mobile.services.auth_service import auth_service
+from mobile.theme.theme import MobiTranzTheme
 
 
-class LoginScreen(Screen):
-    """Écran de connexion MobiTranz."""
-    
+class LoginScreen(BaseScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "login"
-        self._error_label = None
-        
-        layout = BoxLayout(
+
+        layout = MDBoxLayout(
             orientation="vertical",
-            padding=50,
-            spacing=20
+            padding=[50, 80, 50, 50],
+            spacing=20,
         )
-        
-        title = Label(
+
+        title = MDLabel(
             text="MobiTranz",
             font_size=32,
-            color=Colors.PRIMARY,
+            halign="center",
+            theme_text_color="Custom",
+            text_color=MobiTranzTheme.PRIMARY,
             size_hint_y=None,
-            height=60
+            height=60,
+            bold=True,
         )
-        
-        subtitle = Label(
+
+        subtitle = MDLabel(
             text="Connexion",
             font_size=18,
-            color=Colors.TEXT_SECONDARY
-        )
-        
-        self.phone_input = TextInput(
-            hint_text="+241 XX XX XX XX",
-            multiline=False,
-            input_type="phone",
-            size_hint_y=None,
-            height=50
-        )
-        
-        self.password_input = TextInput(
-            hint_text="Mot de passe",
-            multiline=False,
-            password=True,
-            size_hint_y=None,
-            height=50
-        )
-        
-        self.error_label = Label(
-            text="",
-            font_size=14,
-            color=Colors.DANGER,
+            halign="center",
+            theme_text_color="Secondary",
             size_hint_y=None,
             height=30,
-            markup=True
         )
-        
-        login_button = Button(
+
+        self.phone_input = MDTextField(
+            hint_text="+241 XX XX XX XX",
+            mode="rectangle",
+            size_hint_y=None,
+            height=50,
+        )
+
+        self.password_input = MDTextField(
+            hint_text="Mot de passe",
+            mode="rectangle",
+            password=True,
+            size_hint_y=None,
+            height=50,
+        )
+
+        self.error_label = MDLabel(
+            text="",
+            font_size=14,
+            halign="center",
+            theme_text_color="Error",
+            size_hint_y=None,
+            height=30,
+        )
+
+        login_button = MDRaisedButton(
             text="Se connecter",
-            background_color=Colors.PRIMARY,
-            color=(1, 1, 1, 1),
-            size_hint_y=None,
+            size_hint=(1, None),
             height=50,
-            on_press=self.do_login
+            md_bg_color=MobiTranzTheme.PRIMARY,
+            on_release=self.do_login,
         )
-        
-        register_button = Button(
-            text="S'inscrire",
-            background_color=Colors.SURFACE,
-            color=Colors.PRIMARY,
-            size_hint_y=None,
-            height=50,
-            on_press=self.go_to_register
+
+        register_btn = MDTextButton(
+            text="Créer un compte",
+            on_release=self.go_to_register,
+            pos_hint={"center_x": 0.5},
         )
-        
+
         layout.add_widget(title)
         layout.add_widget(subtitle)
         layout.add_widget(self.phone_input)
         layout.add_widget(self.password_input)
         layout.add_widget(self.error_label)
         layout.add_widget(login_button)
-        layout.add_widget(register_button)
-        
+        layout.add_widget(register_btn)
+
         self.add_widget(layout)
-    
+
     def do_login(self, instance):
         phone = self.phone_input.text.strip()
         password = self.password_input.text
-        
+
         if not phone:
-            self.error_label.text = "[color=ff4444]Numéro requis[/color=ff4444]"
+            self.error_label.text = "Numéro requis"
             return
         if not password:
-            self.error_label.text = "[color=ff4444]Mot de passe requis[/color=ff4444]"
+            self.error_label.text = "Mot de passe requis"
             return
-        
-        self.error_label.text = "[color=44ff44]Connexion en cours...[/color=44ff44]"
-        Clock.schedule_once(lambda dt: self._perform_login(phone, password), 0.1)
-    
-    def _perform_login(self, phone: str, password: str):
-        import httpx
-        import mobile.config as config
-        
-        try:
-            response = httpx.post(
-                f"{config.API_BASE_URL}/auth/login",
-                json={"phone": phone, "password": password},
-                timeout=config.API_TIMEOUT
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                auth_service.save_tokens(
-                    access_token=data.get("access_token", ""),
-                    refresh_token=data.get("refresh_token", ""),
-                    user_id="current_user",
-                    role="client"
-                )
-                Clock.schedule_once(lambda dt: self._on_login_success(), 0.1)
-            elif response.status_code == 401:
-                self.error_label.text = "[color=ff4444]Identifiants invalides[/color=ff4444]"
-            elif response.status_code == 423:
-                self.error_label.text = "[color=ff4444]Compte temporairement verrouillé[/color=ff4444]"
-            else:
-                self.error_label.text = "[color=ff4444]Erreur serveur[/color=ff4444]"
-        
-        except httpx.TimeoutException:
-            self.error_label.text = "[color=ff4444]Délai dépassé[/color=ff4444]"
-        except httpx.ConnectError:
-            self.error_label.text = "[color=ff4444]Pas de connexion[/color=ff4444]"
-        except Exception as e:
-            self.error_label.text = f"[color=ff4444]{str(e)[:50]}[/color=ff4444]"
-    
-    def _on_login_success(self):
+
         self.error_label.text = ""
-        self.phone_input.text = ""
-        self.password_input.text = ""
-        self.manager.current = "home"
-    
+        self.show_loading()
+
+        async def _login():
+            result = await api_client.login(phone, password)
+            return result
+
+        def handle_result(result):
+            self.hide_loading()
+            auth_service.save_tokens(
+                access_token=result.get("access_token", ""),
+                refresh_token=result.get("refresh_token", ""),
+                user_id=result.get("user_id", ""),
+                role=result.get("role", "client"),
+            )
+            api_client.set_token(result.get("access_token", ""))
+            self.phone_input.text = ""
+            self.password_input.text = ""
+            self.manager.current = "home"
+
+        def handle_error(error):
+            self.hide_loading()
+            status_code = getattr(error, "response", None)
+            if status_code is not None:
+                sc = getattr(status_code, "status_code", None)
+                if sc == 401:
+                    self.error_label.text = "Identifiants invalides"
+                elif sc == 423:
+                    self.error_label.text = "Compte temporairement verrouillé"
+                else:
+                    self.error_label.text = "Erreur serveur"
+            elif hasattr(error, "__class__") and "Timeout" in error.__class__.__name__:
+                self.error_label.text = "Délai dépassé"
+            elif "Connect" in str(type(error).__name__):
+                self.error_label.text = "Pas de connexion"
+            else:
+                self.error_label.text = str(error)[:60]
+
+        def run():
+            try:
+                result = asyncio.run(_login())
+                Clock.schedule_once(lambda dt: handle_result(result), 0)
+            except Exception as e:
+                Clock.schedule_once(lambda dt: handle_error(e), 0)
+
+        import threading
+        threading.Thread(target=run, daemon=True).start()
+
     def go_to_register(self, instance):
         self.manager.current = "register"

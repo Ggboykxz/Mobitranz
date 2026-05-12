@@ -1,137 +1,230 @@
-# ============================================================
-# Écran Proposition Vocale Mobile
-# Fichier : mobile/screens/client/voice_screen.py
-# Description : Écran de proposition vocale avec enregistrement
-# ============================================================
-
-from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
+import asyncio
+from kivy.clock import Clock
 from kivy.animation import Animation
-from mobile.theme.colors import Colors
-import threading
+from kivy.metrics import dp
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.button import MDRaisedButton, MDFlatButton
+from kivymd.uix.label import MDLabel
+from kivymd.uix.card import MDCard
+from kivymd.uix.spinner import MDSpinner
+from mobile.screens.base_screen import BaseScreen
+from mobile.theme.theme import MobiTranzTheme
+from mobile.services.kivy_api_client import kivy_api_client
 
 
-class VoiceScreen(Screen):
-    """Écran de proposition vocale MobiTranz.
-    
-    Permet d'enregistrer une proposition vocale et voir
-    la transcription en temps réel.
-    """
-    
+class VoiceScreen(BaseScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "voice"
         self._is_recording = False
+        self._waveform_anim = None
+        self._transcribed_data = None
         self._build_ui()
-    
+
     def _build_ui(self):
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=16)
-        
-        # Header
-        header = BoxLayout(size_hint_y=None, height=60)
-        back_btn = Button(text="←", size_hint_x=0.15, background_color=Colors.SURFACE_BG,
-                       on_press=lambda x: setattr(self.manager, 'current', 'home'))
-        title = Label(text="🎤 Proposition Vocale", font_size=20, color=Colors.PRIMARY, size_hint_x=0.7)
+        layout = MDBoxLayout(orientation="vertical", padding=20, spacing=16)
+
+        header = MDBoxLayout(size_hint_y=None, height=60, adaptive_height=False)
+        back_btn = MDFlatButton(
+            text="←",
+            font_size=24,
+            md_bg_color=MobiTranzTheme.PRIMARY,
+            theme_text_color="Custom",
+            text_color="FFFFFF",
+            size_hint_x=0.15,
+            on_release=lambda x: setattr(self.manager, "current", "home"),
+        )
+        title = MDLabel(
+            text="Proposition Vocale",
+            font_size=22,
+            bold=True,
+            halign="center",
+            theme_text_color="Custom",
+            text_color=MobiTranzTheme.PRIMARY,
+            size_hint_x=0.7,
+        )
         header.add_widget(back_btn)
         header.add_widget(title)
         layout.add_widget(header)
-        
-        # Instructions
-        instructions = Label(
+
+        instructions = MDLabel(
             text="Dites votre destination,\nle montant et le nombre de places\n\nExemple: \"Owendo mille francs deux places\"",
-            font_size=14, color=Colors.TEXT_SECONDARY, halign="center"
+            font_size=14,
+            halign="center",
+            theme_text_color="Secondary",
         )
         layout.add_widget(instructions)
-        
-        # Zone de visualisation
-        self.waveform_area = BoxLayout(size_hint=(1, 0.4), background_color=Colors.SURFACE_BG, radius=[12])
-        self.waveform_label = Label(text="🎤", font_size=48, color=Colors.PRIMARY)
-        self.waveform_area.add_widget(self.waveform_label)
-        layout.add_widget(self.waveform_area)
-        
-        # Transcription
-        self.transcription_label = Label(
-            text="Appuyez sur le mikrophone pour commencer",
-            font_size=14, color=Colors.TEXT_SECONDARY, halign="center"
+
+        self.waveform_card = MDCard(
+            size_hint=(1, 0.35),
+            md_bg_color=[0.95, 0.97, 0.99, 1],
+            radius=[dp(16)],
+            orientation="center",
+        )
+        self.waveform_icon = MDLabel(
+            text="🎤",
+            font_size=64,
+            halign="center",
+            valign="middle",
+            theme_text_color="Custom",
+            text_color=MobiTranzTheme.PRIMARY,
+        )
+        self.waveform_card.add_widget(self.waveform_icon)
+        layout.add_widget(self.waveform_card)
+
+        self.transcription_label = MDLabel(
+            text="Appuyez sur le microphone pour commencer",
+            font_size=14,
+            halign="center",
+            theme_text_color="Secondary",
         )
         layout.add_widget(self.transcription_label)
-        
-        # Extraction result
-        self.result_area = BoxLayout(size_hint_y=None, height=100, opacity=0)
-        result_card = BoxLayout(orientation="vertical", padding=10, background_color=Colors.GREY_100, radius=[8])
-        
-        self.dest_label = Label(text="Destination: ---", font_size=14, color=Colors.TEXT_PRIMARY)
-        self.amount_label = Label(text="Montant: ---", font_size=14, color=Colors.TEXT_PRIMARY)
-        self.seats_label = Label(text="Places: ---", font_size=14, color=Colors.TEXT_PRIMARY)
-        
-        result_card.add_widget(self.dest_label)
-        result_card.add_widget(self.amount_label)
-        result_card.add_widget(self.seats_label)
-        self.result_area.add_widget(result_card)
-        layout.add_widget(self.result_area)
-        
-        # Boutons
-        buttons = BoxLayout(size_hint_y=None, height=60, spacing=12)
-        
-        self.record_btn = Button(
-            text="🎤 Enregistrer",
-            background_color=Colors.DANGER,
-            color=(1,1,1,1),
-            on_press=self.toggle_recording
+
+        self.result_card = MDCard(
+            orientation="vertical",
+            padding=12,
+            spacing=6,
+            size_hint_y=None,
+            height=dp(100),
+            md_bg_color=[0.93, 0.96, 0.98, 1],
+            radius=[dp(8)],
+            opacity=0,
         )
-        self.send_btn = Button(
-            text="📤 Envoyer",
-            background_color=Colors.ACCENT,
-            color=(1,1,1,1),
-            on_press=self.send_proposal,
-            disabled=True
+        self.dest_label = MDLabel(
+            text="Destination: ---",
+            font_size=14,
+            theme_text_color="Primary",
         )
-        
+        self.amount_label = MDLabel(
+            text="Montant: ---",
+            font_size=14,
+            theme_text_color="Primary",
+        )
+        self.seats_label = MDLabel(
+            text="Places: ---",
+            font_size=14,
+            theme_text_color="Primary",
+        )
+        self.loading_label = MDLabel(
+            text="",
+            font_size=13,
+            halign="center",
+            theme_text_color="Secondary",
+        )
+        self.result_card.add_widget(self.dest_label)
+        self.result_card.add_widget(self.amount_label)
+        self.result_card.add_widget(self.seats_label)
+        self.result_card.add_widget(self.loading_label)
+        layout.add_widget(self.result_card)
+
+        buttons = MDBoxLayout(size_hint_y=None, height=60, spacing=12)
+
+        self.record_btn = MDRaisedButton(
+            text="🎤  Enregistrer",
+            md_bg_color=MobiTranzTheme.DANGER,
+            size_hint=(1, 1),
+            on_release=self.toggle_recording,
+        )
+        self.send_btn = MDRaisedButton(
+            text="📤  Envoyer",
+            md_bg_color=MobiTranzTheme.ACCENT,
+            size_hint=(1, 1),
+            on_release=self.send_proposal,
+            disabled=True,
+        )
+
         buttons.add_widget(self.record_btn)
         buttons.add_widget(self.send_btn)
         layout.add_widget(buttons)
-        
+
         self.add_widget(layout)
-    
+
+    def on_enter(self):
+        self._reset()
+
+    def _reset(self):
+        self._is_recording = False
+        self._transcribed_data = None
+        self.record_btn.text = "🎤  Enregistrer"
+        self.record_btn.md_bg_color = MobiTranzTheme.DANGER
+        self.record_btn.disabled = False
+        self.send_btn.disabled = True
+        self.send_btn.md_bg_color = MobiTranzTheme.ACCENT
+        self.transcription_label.text = "Appuyez sur le microphone pour commencer"
+        self.result_card.opacity = 0
+        self.dest_label.text = "Destination: ---"
+        self.amount_label.text = "Montant: ---"
+        self.seats_label.text = "Places: ---"
+        self.loading_label.text = ""
+        self.waveform_icon.text = "🎤"
+        self.waveform_icon.opacity = 1
+
     def toggle_recording(self, instance):
-        """Bascule l'enregistrement."""
         self._is_recording = not self._is_recording
-        
+
         if self._is_recording:
-            self.record_btn.text = "⏹ Arrêter"
-            self.record_btn.background_color = Colors.GREY_500
+            self.record_btn.text = "⏹  Arrêter"
+            self.record_btn.md_bg_color = "#718096"
             self.transcription_label.text = "🎤 Écoute en cours..."
-            self._animate_waveform()
+            self._start_waveform_animation()
         else:
-            self.record_btn.text = "🎤 Enregistrer"
-            self.record_btn.background_color = Colors.DANGER
+            self.record_btn.text = "🎤  Enregistrer"
+            self.record_btn.md_bg_color = MobiTranzTheme.DANGER
+            self.record_btn.disabled = True
+            self._stop_waveform_animation()
             self.transcription_label.text = "Transcription en cours..."
             self._simulate_transcription()
-    
-    def _animate_waveform(self):
-        """Anime la zone de visualisation."""
-        def pulse():
-            if self._is_recording:
-                Animation(opacity=0.5, duration=0.3).start(self.waveform_label)
-                self.waveform_label.opacity = 1
-        threading.Thread(target=pulse, daemon=True).start()
-    
+
+    def _start_waveform_animation(self):
+        anim = Animation(opacity=0.3, duration=0.3) + Animation(opacity=1.0, duration=0.3)
+        anim.repeat = True
+        anim.start(self.waveform_icon)
+        self._waveform_anim = anim
+
+    def _stop_waveform_animation(self):
+        if self._waveform_anim:
+            self._waveform_anim.repeat = False
+            self._waveform_anim.stop(self.waveform_icon)
+            self._waveform_anim = None
+        self.waveform_icon.opacity = 1.0
+
     def _simulate_transcription(self):
-        """Simule une transcription."""
-        def process():
-            import time
-            time.sleep(1)
+        def do_transcription(dt):
             self.transcription_label.text = "Owendo mille francs deux places"
             self.dest_label.text = "Destination: Owendo"
             self.amount_label.text = "Montant: 1000 XAF"
             self.seats_label.text = "Places: 2"
-            self.result_area.opacity = 1
+            self.result_card.opacity = 1
+            self.record_btn.disabled = False
             self.send_btn.disabled = False
-        threading.Thread(target=process, daemon=True).start()
-    
+            self._transcribed_data = {
+                "destination": "Owendo",
+                "amount": 1000,
+                "seats": 2,
+                "transcription": "Owendo mille francs deux places",
+            }
+
+        Clock.schedule_once(do_transcription, 1.5)
+
     def send_proposal(self, instance):
-        """Envoie la proposition."""
-        self.manager.current = "home"
+        if not self._transcribed_data:
+            self.show_toast("Aucune proposition à envoyer")
+            return
+
+        self.show_loading()
+
+        def on_success(result):
+            self.hide_loading()
+            self.show_toast("Proposition envoyée avec succès!")
+            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.5)
+
+        def on_error(error):
+            self.hide_loading()
+            self.show_error("Erreur lors de l'envoi: " + str(error)[:80])
+
+        kivy_api_client.call(
+            "submit_voice_proposal",
+            data=self._transcribed_data,
+            on_success=on_success,
+            on_error=on_error,
+        )

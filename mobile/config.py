@@ -1,10 +1,5 @@
-# ============================================================
-# Configuration Mobile MobiTranz
-# Fichier : mobile/config.py
-# Description : Configuration de l'application mobile
-# ============================================================
-
 API_BASE_URL = "http://localhost:8000"
+API_PREFIX = "/api/v1"
 API_TIMEOUT = 30
 
 REDIS_HOST = "localhost"
@@ -18,7 +13,7 @@ VOICE_RECORDING_DURATION = 10
 
 MAP_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
-DEFAULT_LOCATION = {"lat": 0.3921, "lon": 9.4543}  # Libreville
+DEFAULT_LOCATION = {"lat": 0.3921, "lon": 9.4543}
 
 COLORS = {
     "primary": "#1A3A6C",

@@ -1,55 +1,56 @@
-# ============================================================
-# Écran Chat Client-Driver
-# Fichier : mobile/screens/client/chat_screen.py
-# Description : Messagerie entre client et driver
-# ============================================================
-
+from kivy.clock import Clock
 from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.relativelayout import RelativeLayout
 from kivy.properties import BooleanProperty
-from kivy.graphics import Color, RoundedRectangle
-from mobile.theme.colors import Colors
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.card import MDCard
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDFlatButton, MDIconButton
+from kivymd.uix.spinner import MDSpinner
+from kivymd.uix.snackbar import MDSnackbar
+from kivymd.uix.topappbar import MDTopAppBar
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.scrollview import MDScrollView
+from kivy.metrics import dp
+from mobile.services.api_client import api_client
 
 
-class ChatBubble(RelativeLayout):
+class ChatBubble(MDCard):
     is_mine = BooleanProperty(False)
-    
-    def __init__(self, text: str, is_mine: bool = False, **kwargs):
+
+    def __init__(self, text="", is_mine=False, **kwargs):
         super().__init__(**kwargs)
         self.is_mine = is_mine
-        self.size_hint = (None, None)
-        self.size = ("260dp", "50dp")
-        
-        bg_color = Colors.PRIMARY if is_mine else Colors.SURFACE
-        text_color = Colors.TEXT_PRIMARY
-        halign = "right" if is_mine else "left"
-        
-        bg = BoxLayout(
-            size_hint=(1, 1),
-            padding=10,
-            background_color=bg_color
-        )
-        
-        with bg.canvas.before:
-            Color(rgba=bg_color)
-            RoundedRectangle(pos=bg.pos, size=bg.size, radius=[12, 12, 12, 12])
-        
-        label = Label(
-            text=text[:200],
-            color=text_color,
-            halign=halign,
-            valign="middle",
-            text_size=(240, None),
-            font_size=14
-        )
-        
-        bg.add_widget(label)
-        self.add_widget(bg)
+        self.orientation = "vertical"
+        self.size_hint_x = 0.75
+        self.size_hint_y = None
+        self.padding = [12, 8]
+        self.spacing = 0
+        self.radius = [12]
+        self.elevation = 0
+
+        if is_mine:
+            self.md_bg_color = "#1A3A6C"
+            self.pos_hint = {"right": 1}
+            self.text_color = "#FFFFFF"
+        else:
+            self.md_bg_color = "#EDF2F7"
+            self.pos_hint = {"left": 0}
+            self.text_color = "#1A202C"
+
+        self.add_widget(MDLabel(
+            text=text[:500],
+            font_style="Body2",
+            theme_text_color="Custom",
+            text_color=self.text_color,
+            size_hint_y=None,
+            text_size=(dp(240), None),
+            halign="left" if not is_mine else "right",
+        ))
+
+        self.bind(minimum_height=self.setter("height"))
+
+    def on_text(self, instance, value):
+        pass
 
 
 class ChatScreen(Screen):
@@ -57,82 +58,183 @@ class ChatScreen(Screen):
         super().__init__(**kwargs)
         self.name = "chat"
         self._messages = []
-        
-        layout = BoxLayout(orientation="vertical", padding=0, spacing=0)
-        
-        top_bar = BoxLayout(
-            orientation="horizontal",
-            size_hint_y=None,
-            height="60dp",
-            padding=15,
-            spacing=10
+        self._trip_id = None
+        self._poll_event = None
+        self._build_ui()
+
+    def _build_ui(self):
+        self.root = MDBoxLayout(orientation="vertical", md_bg_color="#F7F9FC")
+
+        self.top_bar = MDTopAppBar(
+            title="Chat",
+            md_bg_color="#1A3A6C",
+            specific_text_color="#FFFFFF",
+            left_action_items=[["arrow-left", lambda x: self.go_back()]],
+            right_action_items=[["phone", lambda x: self.call_driver()]],
         )
-        top_bar.add_widget(Button(
-            text="←",
-            size_hint_x=None,
-            width="50dp",
-            on_press=self.go_back
-        ))
-        top_bar.add_widget(Label(text="Chat", font_size=20))
-        
-        self.messages_container = ScrollView(size_hint=(1, 1))
-        self.messages_layout = BoxLayout(
+        self.root.add_widget(self.top_bar)
+
+        self.scroll = MDScrollView(size_hint=(1, 1))
+        self.messages_layout = MDBoxLayout(
             orientation="vertical",
-            padding=15,
-            spacing=10,
-            size_hint_y=None
+            padding=[12, 8],
+            spacing=8,
+            size_hint_y=None,
+            padding_top=8,
+            padding_bottom=8,
         )
-        self.messages_layout.bind(minimum_height=self.messages_layout.setter('height'))
-        self.messages_container.add_widget(self.messages_layout)
-        
-        input_bar = BoxLayout(
+        self.messages_layout.bind(minimum_height=self.messages_layout.setter("height"))
+        self.scroll.add_widget(self.messages_layout)
+        self.root.add_widget(self.scroll)
+
+        self.typing_label = MDLabel(
+            text="",
+            font_style="Caption",
+            theme_text_color="Secondary",
+            size_hint_y=None,
+            height=dp(20),
+            padding=[16, 0],
+            opacity=0,
+        )
+        self.root.add_widget(self.typing_label)
+
+        input_bar = MDCard(
             orientation="horizontal",
             size_hint_y=None,
-            height="60dp",
-            padding=10,
-            spacing=10
+            height=dp(60),
+            padding=[8, 8],
+            spacing=8,
+            md_bg_color="#FFFFFF",
+            radius=[0],
+            elevation=2,
         )
-        
-        self.message_input = TextInput(
+
+        self.message_input = MDTextField(
             hint_text="Tapez votre message...",
+            mode="round",
             size_hint_x=0.8,
-            multiline=False
         )
         self.message_input.bind(on_text_validate=self.send_message)
-        
-        send_btn = Button(
-            text="Envoyer",
-            size_hint_x=0.2,
-            background_color=Colors.PRIMARY,
-            color=(1, 1, 1, 1),
-            on_press=self.send_message
-        )
-        
         input_bar.add_widget(self.message_input)
+
+        send_btn = MDIconButton(
+            icon="send",
+            icon_color="#1A3A6C",
+            theme_icon_size="Custom",
+            icon_size=dp(24),
+            on_release=self.send_message,
+        )
         input_bar.add_widget(send_btn)
-        
-        layout.add_widget(top_bar)
-        layout.add_widget(self.messages_container)
-        layout.add_widget(input_bar)
-        
-        self.add_widget(layout)
-    
-    def go_back(self, instance):
+
+        self.root.add_widget(input_bar)
+
+        self.spinner = MDSpinner(
+            size_hint=(None, None),
+            size=(dp(24), dp(24)),
+            pos_hint={"center_x": 0.5},
+            active=False,
+        )
+        self.root.add_widget(self.spinner)
+
+        self.add_widget(self.root)
+
+    def go_back(self):
+        if self._poll_event:
+            self._poll_event.cancel()
         self.manager.current = "home"
-    
+
+    def call_driver(self):
+        MDSnackbar(text="Appel en cours...", snackbar_x=10, snackbar_y=10).open()
+
+    def on_enter(self):
+        self._trip_id = getattr(self, "trip_id", None) or getattr(self.manager, "current_trip_id", None)
+        if self._trip_id:
+            self.load_messages()
+            self._poll_event = Clock.schedule_interval(lambda dt: self.poll_messages(), 10)
+        else:
+            self.add_dummy_messages()
+
+    def on_leave(self):
+        if self._poll_event:
+            self._poll_event.cancel()
+            self._poll_event = None
+
+    def add_dummy_messages(self):
+        self.messages_layout.clear_widgets()
+        demos = [
+            ("Bonjour ! Je suis votre conducteur. Je arrive dans 5 minutes.", False),
+            ("Tres bien, je vous attends devant le immeuble.", True),
+            ("Parfait, je suis arrive. Vehicule blanche immatricule AA-001-AI.", False),
+        ]
+        for text, is_mine in demos:
+            self.add_bubble(text, is_mine)
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.1)
+
+    async def load_messages(self):
+        self.spinner.active = True
+        try:
+            data = await api_client.get(f"/api/v1/trips/{self._trip_id}/messages")
+            messages = data.get("messages", data.get("data", []))
+            Clock.schedule_once(lambda dt: self.render_messages(messages))
+        except Exception:
+            pass
+        finally:
+            Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
+
+    async def poll_messages(self):
+        try:
+            data = await api_client.get(f"/api/v1/trips/{self._trip_id}/messages")
+            messages = data.get("messages", data.get("data", []))
+            if len(messages) > len(self._messages):
+                Clock.schedule_once(lambda dt, msgs=messages: self.render_messages(msgs))
+        except Exception:
+            pass
+
+    def render_messages(self, messages):
+        self.messages_layout.clear_widgets()
+        self._messages = messages
+        for msg in messages:
+            text = msg.get("content", msg.get("text", ""))
+            is_mine = msg.get("sender", msg.get("role", "")) == "client"
+            self.add_bubble(text, is_mine)
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.1)
+
+    def add_bubble(self, text, is_mine):
+        height = max(dp(40), len(text) * 3)
+        bubble = ChatBubble(text=text, is_mine=is_mine, height=height)
+        self.messages_layout.add_widget(bubble)
+
+    def scroll_to_bottom(self):
+        if self.scroll and self.messages_layout:
+            self.scroll.scroll_y = 0
+
     def send_message(self, instance):
         text = self.message_input.text.strip()
         if not text:
             return
-        
-        self._messages.append({"text": text, "is_mine": True})
-        self.add_message(text, True)
         self.message_input.text = ""
-        
-        self._messages.append({"text": "Merci pour votre message!", "is_mine": False})
-        self.add_message("Merci pour votre message!", False)
-    
-    def add_message(self, text: str, is_mine: bool):
-        bubble = ChatBubble(text, is_mine)
-        self.messages_layout.add_widget(bubble)
-        self.messages_container.scroll_to(bubble)
+        self.add_bubble(text, True)
+        Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.1)
+        Clock.schedule_once(lambda dt: self.send_to_api(text))
+
+    async def send_to_api(self, text):
+        self.spinner.active = True
+        try:
+            await api_client.post("/api/v1/messages", {
+                "trip_id": self._trip_id or "demo",
+                "content": text,
+                "sender": "client",
+            })
+            self.show_typing_indicator()
+        except Exception as e:
+            MDSnackbar(text=f"Erreur envoi: {str(e)}", snackbar_x=10, snackbar_y=10).open()
+        finally:
+            self.spinner.active = False
+
+    def show_typing_indicator(self):
+        self.typing_label.text = "Conducteur ecrit..."
+        self.typing_label.opacity = 1
+        Clock.schedule_once(lambda dt: self.hide_typing_indicator(), 2)
+
+    def hide_typing_indicator(self):
+        self.typing_label.opacity = 0

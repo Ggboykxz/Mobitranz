@@ -1,120 +1,180 @@
-# ============================================================
-# Écran Accueil Client
-# Fichier : mobile/screens/client/home_screen.py
-# Description : Carte avec taxis disponibles et places
-# ============================================================
-
+from kivy.clock import Clock
 from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from mobile.theme.colors import Colors
+from kivy.properties import ObjectProperty, StringProperty
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.card import MDCard
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDIconButton
+from kivymd.uix.spinner import MDSpinner
+from kivymd.uix.snackbar import MDSnackbar
+from kivymd.uix.topappbar import MDTopAppBar
+from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.menu import MDDropdownMenu
+from kivy.metrics import dp
+from mobile.services.api_client import api_client
 
 
 class HomeScreen(Screen):
-    """Écran d'accueil client MobiTranz.
-    
-    Affiche la carte avec les taxis disponibles.
-    """
-    
     def __init__(self, **kwargs):
-        """Initialise l'écran d'accueil."""
         super().__init__(**kwargs)
         self.name = "home"
-        
-        layout = BoxLayout(
-            orientation="vertical",
-            spacing=0
+        self._menu = None
+        self._build_ui()
+
+    def _build_ui(self):
+        self.root = MDBoxLayout(orientation="vertical", md_bg_color="#F7F9FC")
+
+        self.top_bar = MDTopAppBar(
+            title="MobiTranz",
+            md_bg_color="#1A3A6C",
+            specific_text_color="#FFFFFF",
+            left_action_items=[["menu", lambda x: self.open_menu()]],
+            right_action_items=[["account-circle", lambda x: self.go_to_profile()]],
         )
-        
-        header = BoxLayout(
+        self.root.add_widget(self.top_bar)
+
+        scroll = MDBoxLayout(orientation="vertical", padding=[20, 10], spacing=16)
+        self.greeting_label = MDLabel(
+            text="Bonjour !",
+            font_style="H5",
+            theme_text_color="Primary",
+            size_hint_y=None,
+            height=dp(40),
+        )
+        scroll.add_widget(self.greeting_label)
+
+        self.stats_card = MDCard(
             orientation="horizontal",
             size_hint_y=None,
-            height=60,
-            padding=20,
-            spacing=10
+            height=dp(80),
+            padding=16,
+            spacing=10,
+            md_bg_color="#FFFFFF",
+            radius=[12],
         )
-        
-        title = Label(
-            text="MobiTranz",
-            font_size=22,
-            color=Colors.PRIMARY,
-            size_hint_x=0.7
+        self.stats_label = MDLabel(
+            text="Chargement des statistiques...",
+            theme_text_color="Secondary",
+            font_style="Body1",
         )
-        
-        profile_button = Button(
-            text="👤",
-            size_hint_x=0.3,
-            background_color=Colors.SURFACE,
-            on_press=self.go_to_profile
-        )
-        
-        header.add_widget(title)
-        header.add_widget(profile_button)
-        
-        map_area = Label(
-            text="[Carte OpenStreetMap]",
-            markup=True,
-            color=Colors.TEXT_SECONDARY,
-            size_hint_y=0.6
-        )
-        
-        action_area = BoxLayout(
-            orientation="vertical",
-            size_hint_y=0.4,
-            padding=20,
-            spacing=15
-        )
-        
-        voice_button = Button(
-            text="🎤 Proposition vocale",
-            background_color=Colors.ACCENT,
-            color=(1, 1, 1, 1),
+        self.stats_card.add_widget(self.stats_label)
+        scroll.add_widget(self.stats_card)
+
+        menu_grid = MDGridLayout(
+            cols=2,
+            spacing=16,
+            padding=0,
             size_hint_y=None,
-            height=60,
-            on_press=self.go_to_voice
+            height=dp(320),
         )
-        
-        qr_button = Button(
-            text="📷 Scanner QR Code",
-            background_color=Colors.PRIMARY,
-            color=(1, 1, 1, 1),
-            size_hint_y=None,
-            height=60,
-            on_press=self.go_to_qr_scanner
+
+        menu_items = [
+            ("microphone", "Proposition vocale", "voice"),
+            ("qrcode-scan", "Scanner QR", "qr_scanner"),
+            ("car", "Trajet actif", "trip_active"),
+            ("history", "Historique", "trip_history"),
+            ("chat", "Messagerie", "chat"),
+            ("bell", "Notifications", "notifications"),
+            ("alert", "SOS", "sos_history"),
+            ("cog", "Parametres", "settings"),
+        ]
+
+        for icon, label_text, screen_name in menu_items:
+            card = MDCard(
+                orientation="vertical",
+                size_hint=(1, None),
+                height=dp(70),
+                padding=12,
+                spacing=4,
+                md_bg_color="#FFFFFF",
+                radius=[12],
+                ripple_behavior=True,
+            )
+            icon_btn = MDIconButton(
+                icon=icon,
+                theme_icon_color="Custom",
+                icon_color="#1A3A6C",
+                pos_hint={"center_x": 0.5},
+            )
+            label = MDLabel(
+                text=label_text,
+                font_style="Caption",
+                theme_text_color="Secondary",
+                halign="center",
+                size_hint_y=None,
+                height=dp(20),
+            )
+            card.add_widget(icon_btn)
+            card.add_widget(label)
+            card.bind(on_release=lambda x, s=screen_name: self.navigate(s))
+            menu_grid.add_widget(card)
+
+        scroll.add_widget(menu_grid)
+
+        self.spinner = MDSpinner(
+            size_hint=(None, None),
+            size=(dp(30), dp(30)),
+            pos_hint={"center_x": 0.5},
+            active=False,
         )
-        
-        history_button = Button(
-            text="Historique",
-            background_color=Colors.SURFACE,
-            color=Colors.TEXT_SECONDARY,
-            size_hint_y=None,
-            height=50,
-            on_press=self.go_to_history
+        scroll.add_widget(self.spinner)
+
+        self.root.add_widget(scroll)
+        self.add_widget(self.root)
+
+    def on_enter(self):
+        Clock.schedule_once(lambda dt: self.load_data())
+
+    def open_menu(self):
+        menu_items = [
+            {
+                "text": "Carte",
+                "on_release": lambda x="map": self.navigate("map"),
+            },
+            {
+                "text": "Profil",
+                "on_release": lambda x="profile": self.navigate("profile"),
+            },
+            {
+                "text": "Parametres",
+                "on_release": lambda x="settings": self.navigate("settings"),
+            },
+        ]
+        self._menu = MDDropdownMenu(
+            caller=self.top_bar.ids.get("left_actions", self.top_bar),
+            items=menu_items,
+            width_mult=4,
         )
-        
-        action_area.add_widget(voice_button)
-        action_area.add_widget(qr_button)
-        action_area.add_widget(history_button)
-        
-        layout.add_widget(header)
-        layout.add_widget(map_area)
-        layout.add_widget(action_area)
-        
-        self.add_widget(layout)
-    
-    def go_to_voice(self, instance):
-        """Navigate vers l'écran vocal."""
-        self.manager.current = "voice"
-    
-    def go_to_qr_scanner(self, instance):
-        """Navigate vers le scanner QR."""
-        self.manager.current = "qr_scanner"
-    
-    def go_to_history(self, instance):
-        """Navigate vers l'historique."""
-        self.manager.current = "trip_history"
-    
-    def go_to_profile(self, instance):
-        """Navigate vers le profil."""
+        self._menu.open()
+
+    async def load_data(self):
+        self.spinner.active = True
+        try:
+            data = await api_client.get("/api/v1/dashboard")
+            stats = data.get("stats", {})
+            user = data.get("user", {})
+            Clock.schedule_once(lambda dt: self.update_ui(stats, user))
+        except Exception as e:
+            Clock.schedule_once(lambda dt: self.show_error(str(e)))
+        finally:
+            Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
+
+    def update_ui(self, stats, user):
+        self.greeting_label.text = f"Bonjour {user.get('first_name', 'cher client')} !"
+        trips_count = stats.get("trips_count", 0)
+        total_spent = stats.get("total_spent", 0)
+        rating = stats.get("rating", 0)
+        self.stats_label.text = (
+            f"Trajets: {trips_count}  |  Depense: {total_spent} XAF  |  Note: {rating}/5"
+        )
+
+    def show_error(self, message):
+        self.stats_label.text = "Erreur de chargement"
+        MDSnackbar(text=f"Erreur: {message}", snackbar_x=10, snackbar_y=10).open()
+
+    def navigate(self, screen_name):
+        if self.manager and hasattr(self.manager, "current"):
+            self.manager.current = screen_name
+
+    def go_to_profile(self):
         self.manager.current = "profile"

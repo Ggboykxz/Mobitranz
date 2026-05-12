@@ -1,114 +1,105 @@
-# ============================================================
-# Écran Inscription Mobile
-# Fichier : mobile/screens/auth/register_screen.py
-# Description : Écran d'inscription client ou taximan
-# ============================================================
-
-from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.label import Label
+import asyncio
 from kivy.clock import Clock
-from mobile.theme.colors import Colors
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.button import MDRaisedButton, MDTextButton
+from kivymd.uix.label import MDLabel
+from mobile.screens.base_screen import BaseScreen
+from mobile.services.api_client import api_client
 from mobile.services.auth_service import auth_service
+from mobile.theme.theme import MobiTranzTheme
 
 
-class RegisterScreen(Screen):
-    """Écran d'inscription MobiTranz."""
-    
+class RegisterScreen(BaseScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "register"
-        self._error_label = None
-        
-        layout = BoxLayout(
+
+        layout = MDBoxLayout(
             orientation="vertical",
-            padding=50,
-            spacing=20
+            padding=[50, 40, 50, 50],
+            spacing=14,
+            adaptive_height=False,
         )
-        
-        title = Label(
+
+        title = MDLabel(
             text="Créer un compte",
             font_size=28,
-            color=Colors.PRIMARY,
+            halign="center",
+            theme_text_color="Custom",
+            text_color=MobiTranzTheme.PRIMARY,
             size_hint_y=None,
-            height=60
+            height=60,
+            bold=True,
         )
-        
-        self.first_name_input = TextInput(
+
+        self.first_name_input = MDTextField(
             hint_text="Prénom",
-            multiline=False,
+            mode="rectangle",
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.last_name_input = TextInput(
+
+        self.last_name_input = MDTextField(
             hint_text="Nom",
-            multiline=False,
+            mode="rectangle",
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.phone_input = TextInput(
+
+        self.phone_input = MDTextField(
             hint_text="+241 XX XX XX XX",
-            multiline=False,
-            input_type="phone",
+            mode="rectangle",
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.email_input = TextInput(
+
+        self.email_input = MDTextField(
             hint_text="Email (optionnel)",
-            multiline=False,
-            input_type="email",
+            mode="rectangle",
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.password_input = TextInput(
+
+        self.password_input = MDTextField(
             hint_text="Mot de passe",
-            multiline=False,
+            mode="rectangle",
             password=True,
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.confirm_password_input = TextInput(
+
+        self.confirm_password_input = MDTextField(
             hint_text="Confirmer mot de passe",
-            multiline=False,
+            mode="rectangle",
             password=True,
             size_hint_y=None,
-            height=50
+            height=50,
         )
-        
-        self.error_label = Label(
+
+        self.error_label = MDLabel(
             text="",
             font_size=14,
-            color=Colors.DANGER,
+            halign="center",
+            theme_text_color="Error",
             size_hint_y=None,
             height=30,
-            markup=True
         )
-        
-        register_button = Button(
+
+        register_button = MDRaisedButton(
             text="S'inscrire",
-            background_color=Colors.PRIMARY,
-            color=(1, 1, 1, 1),
-            size_hint_y=None,
+            size_hint=(1, None),
             height=50,
-            on_press=self.do_register
+            md_bg_color=MobiTranzTheme.PRIMARY,
+            on_release=self.do_register,
         )
-        
-        back_button = Button(
-            text="Retour",
-            background_color=Colors.SURFACE,
-            color=Colors.TEXT_SECONDARY,
-            size_hint_y=None,
-            height=50,
-            on_press=self.go_back
+
+        back_btn = MDTextButton(
+            text="Déjà un compte ? Connectez-vous",
+            on_release=self.go_back,
+            pos_hint={"center_x": 0.5},
         )
-        
+
         layout.add_widget(title)
         layout.add_widget(self.first_name_input)
         layout.add_widget(self.last_name_input)
@@ -118,10 +109,10 @@ class RegisterScreen(Screen):
         layout.add_widget(self.confirm_password_input)
         layout.add_widget(self.error_label)
         layout.add_widget(register_button)
-        layout.add_widget(back_button)
-        
+        layout.add_widget(back_btn)
+
         self.add_widget(layout)
-    
+
     def do_register(self, instance):
         first_name = self.first_name_input.text.strip()
         last_name = self.last_name_input.text.strip()
@@ -129,72 +120,73 @@ class RegisterScreen(Screen):
         email = self.email_input.text.strip()
         password = self.password_input.text
         confirm = self.confirm_password_input.text
-        
+
         if not phone:
-            self.error_label.text = "[color=ff4444]Numéro requis[/color=ff4444]"
+            self.error_label.text = "Numéro requis"
             return
         if not password:
-            self.error_label.text = "[color=ff4444]Mot de passe requis[/color=ff4444]"
+            self.error_label.text = "Mot de passe requis"
             return
         if len(password) < 8:
-            self.error_label.text = "[color=ff4444]Min. 8 caractères[/color=ff4444]"
+            self.error_label.text = "Min. 8 caractères"
             return
         if password != confirm:
-            self.error_label.text = "[color=ff4444]Mots de passe différents[/color=ff4444]"
+            self.error_label.text = "Mots de passe différents"
             return
-        
-        self.error_label.text = "[color=44ff44]Inscription en cours...[/color=44ff44]"
-        Clock.schedule_once(
-            lambda dt: self._perform_register(phone, password, first_name, last_name, email),
-            0.1
-        )
-    
-    def _perform_register(self, phone: str, password: str, first_name: str, last_name: str, email: str):
-        import httpx
-        import mobile.config as config
-        
-        payload = {
-            "phone": phone,
-            "password": password,
-            "first_name": first_name or "Client",
-            "last_name": last_name or "User",
-        }
-        if email:
-            payload["email"] = email
-        
-        try:
-            response = httpx.post(
-                f"{config.API_BASE_URL}/auth/register",
-                json=payload,
-                timeout=config.API_TIMEOUT
+
+        self.error_label.text = ""
+        self.show_loading()
+
+        async def _register():
+            payload = {
+                "phone": phone,
+                "password": password,
+                "first_name": first_name or "Client",
+                "last_name": last_name or "User",
+            }
+            if email:
+                payload["email"] = email
+            return await api_client.register(**payload)
+
+        def handle_result(result):
+            self.hide_loading()
+            auth_service.save_tokens(
+                access_token=result.get("access_token", ""),
+                refresh_token=result.get("refresh_token", ""),
+                user_id=result.get("user_id", ""),
+                role=result.get("role", "client"),
             )
-            
-            if response.status_code == 201:
-                data = response.json()
-                auth_service.save_tokens(
-                    access_token=data.get("access_token", ""),
-                    refresh_token=data.get("refresh_token", ""),
-                    user_id="new_user",
-                    role="client"
-                )
-                Clock.schedule_once(lambda dt: self._on_register_success(), 0.1)
-            elif response.status_code == 400:
-                self.error_label.text = "[color=ff4444]Données invalides[/color=ff4444]"
-            elif response.status_code == 409:
-                self.error_label.text = "[color=ff4444]Téléphone déjà utilisé[/color=ff4444]"
+            api_client.set_token(result.get("access_token", ""))
+            self.show_toast("Compte créé avec succès!")
+            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.0)
+
+        def handle_error(error):
+            self.hide_loading()
+            status_code = getattr(error, "response", None)
+            if status_code is not None:
+                sc = getattr(status_code, "status_code", None)
+                if sc == 400:
+                    self.error_label.text = "Données invalides"
+                elif sc == 409:
+                    self.error_label.text = "Téléphone déjà utilisé"
+                else:
+                    self.error_label.text = "Erreur serveur"
+            elif "Timeout" in type(error).__name__:
+                self.error_label.text = "Délai dépassé"
+            elif "Connect" in type(error).__name__:
+                self.error_label.text = "Pas de connexion"
             else:
-                self.error_label.text = "[color=ff4444]Erreur serveur[/color=ff4444]"
-        
-        except httpx.TimeoutException:
-            self.error_label.text = "[color=ff4444]Délai dépassé[/color=ff4444]"
-        except httpx.ConnectError:
-            self.error_label.text = "[color=ff4444]Pas de connexion[/color=ff4444]"
-        except Exception as e:
-            self.error_label.text = f"[color=ff4444]{str(e)[:50]}[/color=ff4444]"
-    
-    def _on_register_success(self):
-        self.error_label.text = "[color=44ff44]Compte créé![/color=44ff44]"
-        Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.5)
-    
+                self.error_label.text = str(error)[:60]
+
+        def run():
+            try:
+                result = asyncio.run(_register())
+                Clock.schedule_once(lambda dt: handle_result(result), 0)
+            except Exception as e:
+                Clock.schedule_once(lambda dt: handle_error(e), 0)
+
+        import threading
+        threading.Thread(target=run, daemon=True).start()
+
     def go_back(self, instance):
         self.manager.current = "login"
