@@ -3,3 +3,5 @@ pytest-asyncio
 kivy
 kivymd
 httpx
+kivy-garden.mapview>=1.0.0
+plyer>=2.1.0

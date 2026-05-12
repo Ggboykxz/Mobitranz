@@ -10,6 +10,8 @@ from kivymd.uix.spinner import MDSpinner
 from mobile.screens.base_screen import BaseScreen
 from mobile.theme.theme import MobiTranzTheme
 from mobile.services.kivy_api_client import kivy_api_client
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 
 
 class VoiceScreen(BaseScreen):
@@ -119,13 +121,13 @@ class VoiceScreen(BaseScreen):
 
         buttons = MDBoxLayout(size_hint_y=None, height=60, spacing=12)
 
-        self.record_btn = MDRaisedButton(
+        self.record_btn = RippleButton(
             text="🎤  Enregistrer",
             md_bg_color=MobiTranzTheme.DANGER,
             size_hint=(1, 1),
             on_release=self.toggle_recording,
         )
-        self.send_btn = MDRaisedButton(
+        self.send_btn = RippleButton(
             text="📤  Envoyer",
             md_bg_color=MobiTranzTheme.ACCENT,
             size_hint=(1, 1),
@@ -163,11 +165,13 @@ class VoiceScreen(BaseScreen):
         self._is_recording = not self._is_recording
 
         if self._is_recording:
+            Haptic.heavy()
             self.record_btn.text = "⏹  Arrêter"
             self.record_btn.md_bg_color = "#718096"
             self.transcription_label.text = "🎤 Écoute en cours..."
             self._start_waveform_animation()
         else:
+            Haptic.medium()
             self.record_btn.text = "🎤  Enregistrer"
             self.record_btn.md_bg_color = MobiTranzTheme.DANGER
             self.record_btn.disabled = True
@@ -215,6 +219,7 @@ class VoiceScreen(BaseScreen):
 
         def on_success(result):
             self.hide_loading()
+            Haptic.medium()
             self.show_toast("Proposition envoyée avec succès!")
             Clock.schedule_once(lambda dt: self.manager.switch("home"), 1.5)
 

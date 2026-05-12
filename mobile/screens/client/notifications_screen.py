@@ -11,6 +11,9 @@ from kivymd.uix.scrollview import MDScrollView
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer import ShimmerBox
+from mobile.ui.shimmer_list import ShimmerContainer
+from mobile.ui.haptic import Haptic
 
 
 NOTIFICATION_ICONS = {
@@ -54,6 +57,33 @@ class NotificationsScreen(Screen):
         self.notif_list.bind(minimum_height=self.notif_list.setter("height"))
         self.scroll.add_widget(self.notif_list)
         body.add_widget(self.scroll)
+
+        self.shimmer_layout = MDBoxLayout(
+            orientation="vertical",
+            padding=[8, 8],
+            spacing=4,
+            size_hint_y=None,
+        )
+        self.shimmer_layout.bind(minimum_height=self.shimmer_layout.setter("height"))
+        for _ in range(3):
+            card = MDCard(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(72),
+                padding=[12, 8],
+                spacing=12,
+                md_bg_color=[0.97, 0.97, 0.97, 1],
+                radius=[8],
+            )
+            card.add_widget(ShimmerBox(width=28, height=28, radius=14))
+            col = MDBoxLayout(orientation="vertical", spacing=4)
+            col.add_widget(ShimmerBox(width=140, height=16))
+            col.add_widget(ShimmerBox(width=200, height=14))
+            col.add_widget(ShimmerBox(width=80, height=12))
+            card.add_widget(col)
+            self.shimmer_layout.add_widget(card)
+        self.shimmer_layout.opacity = 0
+        body.add_widget(self.shimmer_layout)
 
         self.empty_state = MDBoxLayout(
             orientation="vertical",
@@ -122,6 +152,9 @@ class NotificationsScreen(Screen):
 
     async def load_notifications(self):
         self.spinner.active = True
+        self.shimmer_layout.opacity = 1
+        self.notif_list.opacity = 0
+        self.empty_state.opacity = 0
         self.hide_offline_banner()
         cached = cache_service.get("notifications")
         if cached:
@@ -154,6 +187,8 @@ class NotificationsScreen(Screen):
         self.render_notifications()
 
     def render_notifications(self):
+        self.shimmer_layout.opacity = 0
+        self.notif_list.opacity = 1
         self.notif_list.clear_widgets()
         has_items = len(self._notifications) > 0
 

@@ -12,6 +12,8 @@ from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.switch import MDSwitch
 from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
+from mobile.theme.theme import MobiTranzTheme
+from mobile.ui.haptic import Haptic
 
 
 class SettingsScreen(Screen):
@@ -27,12 +29,18 @@ class SettingsScreen(Screen):
             "trip_history": True,
             "language": "Francais",
             "currency": "XAF",
+            "dark_mode": False,
         }
         self._dialog = None
         self._build_ui()
 
     def _build_ui(self):
-        self.root = MDBoxLayout(orientation="vertical", md_bg_color="#F7F9FC")
+        stored_dark = self._load_setting("dark_mode")
+        bg = "#1E1E2E" if stored_dark else "#F7F9FC"
+        card_bg = "#2D2D44" if stored_dark else "#FFFFFF"
+        text_color = "#FFFFFF" if stored_dark else "#1A3A6C"
+
+        self.root = MDBoxLayout(orientation="vertical", md_bg_color=bg)
 
         self.top_bar = MDTopAppBar(
             title="Parametres",
@@ -72,6 +80,9 @@ class SettingsScreen(Screen):
                 ("help-circle", "Aide et support", self.open_help),
                 ("bug", "Signaler un probleme", self.report_issue),
             ]),
+            ("Theme", [
+                ("theme-light-dark", "Mode sombre", "dark_mode"),
+            ]),
             ("A propos", [
                 ("information", "Version 1.0.0", self.show_about),
                 ("file-document", "Conditions utilisation", self.show_terms),
@@ -80,12 +91,12 @@ class SettingsScreen(Screen):
         ]
 
         for section_title, items in sections:
-            content.add_widget(self._create_section_header(section_title))
+            content.add_widget(self._create_section_header(section_title, stored_dark))
             for item in items:
                 if len(item) == 3 and item[1] in self._defaults:
-                    content.add_widget(self._create_toggle_row(item[0], item[1], item[2]))
+                    content.add_widget(self._create_toggle_row(item[0], item[1], item[2], stored_dark, card_bg))
                 else:
-                    content.add_widget(self._create_action_row(item[0], item[1], item[2]))
+                    content.add_widget(self._create_action_row(item[0], item[1], item[2], stored_dark, card_bg))
 
         content.add_widget(MDBoxLayout(size_hint_y=None, height=dp(16)))
 
@@ -103,7 +114,7 @@ class SettingsScreen(Screen):
         self.root.add_widget(scroll)
         self.add_widget(self.root)
 
-    def _create_section_header(self, title):
+    def _create_section_header(self, title, is_dark=False):
         header = MDBoxLayout(
             orientation="vertical",
             size_hint_y=None,
@@ -119,14 +130,14 @@ class SettingsScreen(Screen):
         ))
         return header
 
-    def _create_action_row(self, icon, text, callback):
+    def _create_action_row(self, icon, text, callback, is_dark=False, card_bg="#FFFFFF"):
         row = MDCard(
             orientation="horizontal",
             size_hint_y=None,
             height=dp(52),
             padding=[12, 8],
             spacing=12,
-            md_bg_color="#FFFFFF",
+            md_bg_color=card_bg,
             radius=[8],
             ripple_behavior=True,
         )
@@ -146,14 +157,14 @@ class SettingsScreen(Screen):
         row.bind(on_release=lambda x, cb=callback: cb())
         return row
 
-    def _create_toggle_row(self, icon, text, key):
+    def _create_toggle_row(self, icon, text, key, is_dark=False, card_bg="#FFFFFF"):
         row = MDCard(
             orientation="horizontal",
             size_hint_y=None,
             height=dp(52),
             padding=[12, 8],
             spacing=12,
-            md_bg_color="#FFFFFF",
+            md_bg_color=card_bg,
             radius=[8],
         )
         ico = MDIconButton(icon=icon, icon_color="#1A3A6C", theme_icon_size="Custom", icon_size=dp(22))
@@ -164,7 +175,10 @@ class SettingsScreen(Screen):
             size_hint_x=None,
             width=dp(50),
         )
-        switch.bind(active=lambda s, val, k=key: self._save_setting(k, val))
+        if key == "dark_mode":
+            switch.bind(active=self._on_dark_mode_toggle)
+        else:
+            switch.bind(active=lambda s, val, k=key: self._save_setting(k, val))
 
         row.add_widget(ico)
         row.add_widget(lbl)
@@ -185,6 +199,15 @@ class SettingsScreen(Screen):
             snackbar_y=10,
             duration=1.5,
         ).open()
+
+    def _on_dark_mode_toggle(self, instance, value):
+        self._save_setting("dark_mode", value)
+        MobiTranzTheme.set_dark_mode(value)
+        Clock.schedule_once(lambda dt: self._rebuild_ui())
+
+    def _rebuild_ui(self):
+        self.root.clear_widgets()
+        self._build_ui()
 
     def go_back(self):
         self.manager.switch("home")

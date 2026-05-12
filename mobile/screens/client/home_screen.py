@@ -1,6 +1,5 @@
 from kivy.clock import Clock
 from kivy.uix.screenmanager import Screen
-from kivy.properties import ObjectProperty, StringProperty
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
@@ -13,6 +12,8 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer import ShimmerBox
+from mobile.ui.haptic import Haptic
 
 
 class HomeScreen(Screen):
@@ -20,6 +21,7 @@ class HomeScreen(Screen):
         super().__init__(**kwargs)
         self.name = "home"
         self._menu = None
+        self._shimmer = None
         self._build_ui()
 
     def _build_ui(self):
@@ -60,6 +62,18 @@ class HomeScreen(Screen):
         )
         self.stats_card.add_widget(self.stats_label)
         scroll.add_widget(self.stats_card)
+
+        self.shimmer_container = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(80),
+            padding=16,
+            spacing=10,
+        )
+        self.shimmer_container.add_widget(ShimmerBox(width=280, height=18))
+        self.shimmer_container.add_widget(ShimmerBox(width=200, height=14))
+        self.shimmer_container.opacity = 0
+        scroll.add_widget(self.shimmer_container)
 
         menu_grid = MDGridLayout(
             cols=2,
@@ -154,6 +168,8 @@ class HomeScreen(Screen):
 
     async def load_data(self):
         self.spinner.active = True
+        self.stats_card.opacity = 0
+        self.shimmer_container.opacity = 1
         self.hide_offline_banner()
         cached = cache_service.get("dashboard")
         if cached:
@@ -181,6 +197,11 @@ class HomeScreen(Screen):
                     Clock.schedule_once(lambda dt: self.show_error(str(e)))
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
+            Clock.schedule_once(lambda dt: self._hide_shimmer())
+
+    def _hide_shimmer(self):
+        self.shimmer_container.opacity = 0
+        self.stats_card.opacity = 1
 
     def update_ui(self, stats, user):
         self.greeting_label.text = f"Bonjour {user.get('first_name', 'cher client')} !"

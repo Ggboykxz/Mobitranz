@@ -12,6 +12,8 @@ from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 
 
 class PaymentScreen(Screen):
@@ -131,7 +133,7 @@ class PaymentScreen(Screen):
         )
         body.add_widget(self.phone_field)
 
-        self.pay_btn = MDRaisedButton(
+        self.pay_btn = RippleButton(
             text="Payer",
             md_bg_color="#009E60",
             text_color="#FFFFFF",
@@ -225,6 +227,7 @@ class PaymentScreen(Screen):
         self.trip_seats_label.text = f"Places: {seats}"
 
     def select_method(self, method_name):
+        Haptic.selection()
         self.selected_method = method_name
         for name, card in self.method_buttons.items():
             card.md_bg_color = "#E8F0FE" if name == method_name else "#FFFFFF"
@@ -251,6 +254,7 @@ class PaymentScreen(Screen):
                 phone=phone,
             )
             status = result.get("status", "pending")
+            Haptic.heavy()
             MDSnackbar(
                 text=f"Paiement {status}. Redirection en cours...",
                 snackbar_x=10,
@@ -258,6 +262,7 @@ class PaymentScreen(Screen):
             ).open()
             Clock.schedule_once(lambda dt: self.go_to_active_trip(), 1)
         except Exception as e:
+            Haptic.light()
             MDSnackbar(text=f"Erreur de paiement: {str(e)}", snackbar_x=10, snackbar_y=10).open()
         finally:
             self.spinner.active = False

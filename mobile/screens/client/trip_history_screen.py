@@ -12,6 +12,7 @@ from kivymd.uix.list import TwoLineListItem, ThreeLineListItem
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer_list import ShimmerTripCard, ShimmerContainer
 
 
 class TripHistoryScreen(Screen):
@@ -23,6 +24,7 @@ class TripHistoryScreen(Screen):
         self._loading = False
         self._trips = []
         self._filter = "all"
+        self._shimmer = None
         self._build_ui()
 
     def _build_ui(self):
@@ -75,6 +77,18 @@ class TripHistoryScreen(Screen):
         self.list_container.bind(minimum_height=self.list_container.setter("height"))
         self.scroll.add_widget(self.list_container)
         body.add_widget(self.scroll)
+
+        self.shimmer_layout = MDBoxLayout(
+            orientation="vertical",
+            padding=[16, 8],
+            spacing=8,
+            size_hint_y=None,
+        )
+        self.shimmer_layout.bind(minimum_height=self.shimmer_layout.setter("height"))
+        for _ in range(3):
+            self.shimmer_layout.add_widget(ShimmerTripCard())
+        self.shimmer_layout.opacity = 0
+        body.add_widget(self.shimmer_layout)
 
         self.empty_state = MDBoxLayout(
             orientation="vertical",
@@ -161,6 +175,9 @@ class TripHistoryScreen(Screen):
         self.spinner.active = True
         self.hide_offline_banner()
         if self._page == 1:
+            self.shimmer_layout.opacity = 1
+            self.list_container.opacity = 0
+            self.empty_state.opacity = 0
             cached = cache_service.get("trips")
             if cached and cached.get("filter") == self._filter:
                 Clock.schedule_once(lambda dt: self.render_trips(cached.get("trips", [])))
@@ -188,6 +205,8 @@ class TripHistoryScreen(Screen):
     def render_trips(self, trips):
         if self._page == 1:
             self.list_container.clear_widgets()
+            self.shimmer_layout.opacity = 0
+            self.list_container.opacity = 1
         self._trips.extend(trips)
         for trip in trips:
             item = self._build_trip_item(trip)

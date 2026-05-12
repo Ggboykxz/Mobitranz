@@ -7,6 +7,8 @@ from kivymd.uix.button import MDRaisedButton, MDFlatButton
 from mobile.screens.base_screen import BaseScreen
 from mobile.theme.theme import MobiTranzTheme
 from mobile.services.kivy_api_client import kivy_api_client
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 
 
 class RatingScreen(BaseScreen):
@@ -128,7 +130,7 @@ class RatingScreen(BaseScreen):
 
         layout.add_widget(MDBoxLayout(size_hint_y=None, height=dp(10)))
 
-        submit_btn = MDRaisedButton(
+        submit_btn = RippleButton(
             text="Envoyer",
             size_hint=(1, None),
             height=dp(50),
@@ -154,6 +156,7 @@ class RatingScreen(BaseScreen):
     def _make_star_tap(self, index):
         def on_touch(instance, touch):
             if instance.collide_point(*touch.pos):
+                Haptic.selection()
                 self._rating = index + 1
                 self._update_stars()
         return on_touch
@@ -184,6 +187,7 @@ class RatingScreen(BaseScreen):
 
         def on_success(result):
             self.hide_loading()
+            Haptic.medium()
             self.show_toast("Note envoyée, merci!")
             Clock.schedule_once(lambda dt: self.manager.switch("home"), 1.5)
 

@@ -11,6 +11,8 @@ from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 
 
 class TripActiveScreen(Screen):
@@ -118,7 +120,7 @@ class TripActiveScreen(Screen):
         self.info_card.add_widget(self.price_label)
         body.add_widget(self.info_card)
 
-        self.sos_btn = MDRaisedButton(
+        self.sos_btn = RippleButton(
             text="SIGNALER UN INCIDENT",
             md_bg_color="#E53E3E",
             text_color="#FFFFFF",
@@ -128,7 +130,7 @@ class TripActiveScreen(Screen):
         )
         body.add_widget(self.sos_btn)
 
-        self.complete_btn = MDRaisedButton(
+        self.complete_btn = RippleButton(
             text="Terminer le trajet",
             md_bg_color="#009E60",
             text_color="#FFFFFF",
@@ -266,6 +268,7 @@ class TripActiveScreen(Screen):
                 "trip_id": self.trip_id,
             })
             incident_id = result.get("incident_id")
+            Haptic.heavy()
             MDSnackbar(
                 text=f"Incident signale (Ref: {incident_id}). Secours en route.",
                 snackbar_x=10,
@@ -280,9 +283,11 @@ class TripActiveScreen(Screen):
         self.spinner.active = True
         try:
             await api_client.post(f"/api/v1/trips/{self.trip_id}/complete", {})
+            Haptic.heavy()
             MDSnackbar(text="Trajet termine !", snackbar_x=10, snackbar_y=10).open()
             Clock.schedule_once(lambda dt: self.go_to_rating(), 1)
         except Exception as e:
+            Haptic.light()
             MDSnackbar(text=f"Erreur: {str(e)}", snackbar_x=10, snackbar_y=10).open()
         finally:
             self.spinner.active = False

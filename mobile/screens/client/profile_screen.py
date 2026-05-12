@@ -12,6 +12,8 @@ from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer import ShimmerBox
+from mobile.ui.shimmer_list import ShimmerProfileRow
 
 
 class ProfileScreen(Screen):
@@ -100,6 +102,34 @@ class ProfileScreen(Screen):
         self.stats_card.add_widget(self.stats_container)
         body.add_widget(self.stats_card)
 
+        self.shimmer_container = MDBoxLayout(
+            orientation="vertical",
+            spacing=8,
+            size_hint_y=None,
+            adaptive_height=True,
+            opacity=0,
+        )
+        self.shimmer_container.add_widget(MDBoxLayout(size_hint_y=None, height=dp(100)))
+        self.shimmer_container.add_widget(ShimmerBox(width=160, height=22, pos_hint={"center_x": 0.5}))
+        self.shimmer_container.add_widget(ShimmerBox(width=120, height=16, pos_hint={"center_x": 0.5}))
+        self.shimmer_container.add_widget(ShimmerBox(width=140, height=16, pos_hint={"center_x": 0.5}))
+        shimmer_stats = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(80),
+            padding=12,
+            spacing=8,
+        )
+        for _ in range(3):
+            col = MDBoxLayout(orientation="vertical", size_hint=(0.33, 1), spacing=4)
+            col.add_widget(ShimmerBox(width=60, height=20, pos_hint={"center_x": 0.5}))
+            col.add_widget(ShimmerBox(width=40, height=14, pos_hint={"center_x": 0.5}))
+            shimmer_stats.add_widget(col)
+        self.shimmer_container.add_widget(shimmer_stats)
+        for _ in range(4):
+            self.shimmer_container.add_widget(ShimmerProfileRow())
+        body.add_widget(self.shimmer_container)
+
         menu_items = [
             ("account-edit", "Modifier le profil", self.show_edit_dialog),
             ("bell", "Notifications", self.go_to_notifications),
@@ -109,6 +139,7 @@ class ProfileScreen(Screen):
             ("logout", "Deconnexion", self.logout),
         ]
 
+        self.menu_container = MDBoxLayout(orientation="vertical", spacing=4)
         for icon, label_text, action in menu_items:
             item = MDCard(
                 orientation="horizontal",
@@ -129,7 +160,8 @@ class ProfileScreen(Screen):
             item.add_widget(ico)
             item.add_widget(lbl)
             item.bind(on_release=lambda x, a=action: a())
-            body.add_widget(item)
+            self.menu_container.add_widget(item)
+        body.add_widget(self.menu_container)
 
         self.spinner = MDSpinner(
             size_hint=(None, None),
@@ -175,6 +207,13 @@ class ProfileScreen(Screen):
 
     async def load_profile(self):
         self.spinner.active = True
+        self.avatar_card.opacity = 0
+        self.name_label.opacity = 0
+        self.phone_label.opacity = 0
+        self.email_label.opacity = 0
+        self.stats_card.opacity = 0
+        self.menu_container.opacity = 0
+        self.shimmer_container.opacity = 1
         self.hide_offline_banner()
         cached = cache_service.get("profile")
         if cached:
@@ -199,6 +238,14 @@ class ProfileScreen(Screen):
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
     def update_ui(self):
+        self.shimmer_container.opacity = 0
+        self.avatar_card.opacity = 1
+        self.name_label.opacity = 1
+        self.phone_label.opacity = 1
+        self.email_label.opacity = 1
+        self.stats_card.opacity = 1
+        self.menu_container.opacity = 1
+
         user = self._user_data
         first_name = user.get("first_name", "")
         last_name = user.get("last_name", "")

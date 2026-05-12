@@ -13,6 +13,8 @@ from kivymd.uix.scrollview import MDScrollView
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer_list import ShimmerEarningsCard, ShimmerTransactionList
+from mobile.ui.haptic import Haptic
 import asyncio
 
 
@@ -24,6 +26,7 @@ class WalletScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "wallet"
+        self._shimmer = None
         self._build_ui()
 
     def _build_ui(self):
@@ -51,6 +54,16 @@ class WalletScreen(MDScreen):
             active=True
         )
         content.add_widget(self.spinner)
+
+        self.shimmer_container = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(16),
+            adaptive_height=True,
+            opacity=0,
+        )
+        self.shimmer_container.add_widget(ShimmerEarningsCard())
+        self.shimmer_container.add_widget(ShimmerTransactionList(count=3))
+        content.add_widget(self.shimmer_container)
 
         self.balance_card = MDCard(
             orientation="vertical",
@@ -151,6 +164,10 @@ class WalletScreen(MDScreen):
     def _load_data(self):
         self._loading = True
         self.spinner.active = True
+        self.balance_card.opacity = 0
+        self.transaction_container.opacity = 0
+        self.empty_state.opacity = 0
+        self.shimmer_container.opacity = 1
         self.hide_offline_banner()
         asyncio.ensure_future(self._fetch_wallet())
 
@@ -183,6 +200,9 @@ class WalletScreen(MDScreen):
     def _update_wallet(self, wallet_data, txn_data):
         self._loading = False
         self.spinner.active = False
+        self.shimmer_container.opacity = 0
+        self.balance_card.opacity = 1
+        self.transaction_container.opacity = 1
 
         balance = wallet_data.get("balance", wallet_data.get("amount", 0))
         pending = wallet_data.get("pending", wallet_data.get("pending_amount", 0))

@@ -10,6 +10,7 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivy.core.window import Window
 from mobile.services.cache_service import cache_service
+from mobile.ui.haptic import Haptic
 
 
 class BaseScreen(MDScreen):
@@ -18,6 +19,7 @@ class BaseScreen(MDScreen):
         self._loading_layout = None
         self._snackbar = None
         self._header = None
+        self._shimmer = None
 
     def build_header(self, title="", show_back=True):
         if self._header:
@@ -73,6 +75,16 @@ class BaseScreen(MDScreen):
             if self._loading_layout.parent:
                 self.remove_widget(self._loading_layout)
             self._loading_layout = None
+
+    def show_shimmer(self, shimmer_widget):
+        self._shimmer = shimmer_widget
+        self.add_widget(self._shimmer)
+
+    def hide_shimmer(self):
+        if self._shimmer:
+            if self._shimmer.parent:
+                self.remove_widget(self._shimmer)
+            self._shimmer = None
 
     def show_toast(self, text, duration=2.0):
         try:
@@ -131,6 +143,7 @@ class BaseScreen(MDScreen):
             self._offline_banner = None
 
     def on_back_button(self):
+        Haptic.light()
         if self.manager and len(self.manager.screen_names) > 0:
             self.manager.current = self.manager.screen_names[
                 max(0, self.manager.screen_names.index(self.name) - 1)

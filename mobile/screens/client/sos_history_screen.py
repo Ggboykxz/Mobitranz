@@ -11,6 +11,8 @@ from kivymd.uix.scrollview import MDScrollView
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer import ShimmerBox
+from mobile.ui.shimmer_list import ShimmerContainer
 
 
 STATUS_CONFIG = {
@@ -51,6 +53,38 @@ class SOSHistoryScreen(Screen):
         self.incident_list.bind(minimum_height=self.incident_list.setter("height"))
         self.scroll.add_widget(self.incident_list)
         body.add_widget(self.scroll)
+
+        self.shimmer_layout = MDBoxLayout(
+            orientation="vertical",
+            padding=[12, 8],
+            spacing=8,
+            size_hint_y=None,
+        )
+        self.shimmer_layout.bind(minimum_height=self.shimmer_layout.setter("height"))
+        for _ in range(3):
+            card = MDCard(
+                orientation="vertical",
+                size_hint_y=None,
+                height=dp(90),
+                padding=[12, 10],
+                spacing=6,
+                md_bg_color=[0.97, 0.97, 0.97, 1],
+                radius=[10],
+            )
+            row = MDBoxLayout(size_hint_y=None, height=dp(24), spacing=8)
+            row.add_widget(ShimmerBox(width=20, height=20, radius=10))
+            row.add_widget(ShimmerBox(width=100, height=16))
+            row.add_widget(ShimmerBox(width=80, height=16))
+            card.add_widget(row)
+            row2 = MDBoxLayout(size_hint_y=None, height=dp(20), spacing=4)
+            row2.add_widget(ShimmerBox(width=14, height=14, radius=7))
+            row2.add_widget(ShimmerBox(width=120, height=14))
+            row2.add_widget(ShimmerBox(width=60, height=14))
+            card.add_widget(row2)
+            card.add_widget(ShimmerBox(width=180, height=14))
+            self.shimmer_layout.add_widget(card)
+        self.shimmer_layout.opacity = 0
+        body.add_widget(self.shimmer_layout)
 
         self.empty_state = MDBoxLayout(
             orientation="vertical",
@@ -126,6 +160,9 @@ class SOSHistoryScreen(Screen):
 
     async def load_incidents(self):
         self.spinner.active = True
+        self.shimmer_layout.opacity = 1
+        self.incident_list.opacity = 0
+        self.empty_state.opacity = 0
         self.hide_offline_banner()
         cached = cache_service.get("incidents")
         if cached:
@@ -176,6 +213,8 @@ class SOSHistoryScreen(Screen):
         self.render_incidents()
 
     def render_incidents(self):
+        self.shimmer_layout.opacity = 0
+        self.incident_list.opacity = 1
         self.incident_list.clear_widgets()
         has_items = len(self._incidents) > 0
 

@@ -14,6 +14,8 @@ from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
 from mobile.config import DEFAULT_LOCATION
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 import asyncio
 
 
@@ -146,13 +148,13 @@ class TripActiveDriverScreen(MDScreen):
         scroll.add_widget(self.camera_btn)
 
         btn_row = MDBoxLayout(spacing=dp(12), adaptive_height=True)
-        sos_btn = MDRaisedButton(
+        sos_btn = RippleButton(
             text="alert  SOS",
             md_bg_color=Colors.DANGER,
             on_release=self._trigger_sos,
             size_hint_x=0.5
         )
-        complete_btn = MDRaisedButton(
+        complete_btn = RippleButton(
             text="check  Terminer",
             md_bg_color=Colors.ACCENT_BG,
             on_release=self._confirm_complete,
@@ -268,6 +270,7 @@ class TripActiveDriverScreen(MDScreen):
             self._show_snackbar("Camera desactivee")
 
     def _trigger_sos(self, instance):
+        Haptic.heavy()
         asyncio.ensure_future(self._send_sos())
 
     async def _send_sos(self):
@@ -326,6 +329,7 @@ class TripActiveDriverScreen(MDScreen):
     async def _complete_trip_api(self):
         try:
             await api_client.post(f"/api/v1/trips/{self.trip_id}/complete", {})
+            Haptic.heavy()
             Clock.schedule_once(lambda dt: self._on_complete_success())
         except Exception as e:
             Clock.schedule_once(lambda dt: self._show_error(str(e)))

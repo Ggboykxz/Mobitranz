@@ -14,6 +14,8 @@ from kivymd.uix.scrollview import MDScrollView
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
 from mobile.services.cache_service import cache_service
+from mobile.ui.shimmer_list import ShimmerEarningsCard, ShimmerStatsRow, ShimmerTransactionList
+from mobile.ui.haptic import Haptic
 import asyncio
 
 
@@ -25,6 +27,7 @@ class EarningsScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = "earnings"
+        self._shimmer = None
         self._build_ui()
 
     def _build_ui(self):
@@ -52,6 +55,17 @@ class EarningsScreen(MDScreen):
             active=True
         )
         content.add_widget(self.spinner)
+
+        self.shimmer_container = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            adaptive_height=True,
+            opacity=0
+        )
+        self.shimmer_container.add_widget(ShimmerEarningsCard())
+        self.shimmer_container.add_widget(ShimmerStatsRow())
+        self.shimmer_container.add_widget(ShimmerTransactionList(count=3))
+        content.add_widget(self.shimmer_container)
 
         self.total_card = MDCard(
             orientation="vertical",
@@ -155,6 +169,10 @@ class EarningsScreen(MDScreen):
     def _load_data(self):
         self._loading = True
         self.spinner.active = True
+        self.total_card.opacity = 0
+        self.stats_grid.opacity = 0
+        self.transaction_container.opacity = 0
+        self.shimmer_container.opacity = 1
         self.hide_offline_banner()
         asyncio.ensure_future(self._fetch_earnings())
 
@@ -195,6 +213,10 @@ class EarningsScreen(MDScreen):
     def _update_earnings(self, data):
         self._loading = False
         self.spinner.active = False
+        self.shimmer_container.opacity = 0
+        self.total_card.opacity = 1
+        self.stats_grid.opacity = 1
+        self.transaction_container.opacity = 1
 
         period_labels = {
             "today": "AUJOURD'HUI",
@@ -313,6 +335,7 @@ class EarningsScreen(MDScreen):
             app = MDApp.get_running_app()
             driver_id = getattr(app, "driver_id", "")
             data = await api_client.post("/api/v1/payments/withdraw", {"driver_id": driver_id})
+            Haptic.medium()
             Clock.schedule_once(lambda dt: self._show_snackbar(
                 f"Retrait reussi! {data.get('amount', 0):,} XAF"
             ))

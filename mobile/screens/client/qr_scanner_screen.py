@@ -13,6 +13,8 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.ui.haptic import Haptic
+from mobile.ui.ripple import RippleButton
 
 
 class QRScannerScreen(Screen):
@@ -100,7 +102,7 @@ class QRScannerScreen(Screen):
         self.result_card.add_widget(self.result_label)
         body.add_widget(self.result_card)
 
-        self.camera_btn = MDRaisedButton(
+        self.camera_btn = RippleButton(
             text="Activer camera",
             md_bg_color="#1A3A6C",
             size_hint=(1, None),
@@ -165,6 +167,7 @@ class QRScannerScreen(Screen):
         pass
 
     def parse_qr_result(self, data):
+        Haptic.heavy()
         self.status_label.text = "QR Code detecte !"
         self.result_label.text = f"Code: {data}"
         self.result_card.opacity = 1
@@ -176,6 +179,7 @@ class QRScannerScreen(Screen):
             result = await api_client.post("/api/v1/qr/verify", {"code": code})
             trip_id = result.get("trip_id")
             if trip_id:
+                Haptic.heavy()
                 MDSnackbar(
                     text="QR valide ! Trajet trouve.",
                     snackbar_x=10,
@@ -184,6 +188,7 @@ class QRScannerScreen(Screen):
                 self.manager.get_screen("trip_active").trip_id = trip_id
                 Clock.schedule_once(lambda dt: self.manager.switch("trip_active"))
             else:
+                Haptic.light()
                 MDSnackbar(
                     text="QR invalide ou deja utilise",
                     snackbar_x=10,
