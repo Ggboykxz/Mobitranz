@@ -1,159 +1,117 @@
-# MobiTranz — Perspectives d'Amélioration
-
-## 1. Backend - API & Services
-
-### 1.1 WebSocket pour temps réel
-- [ ] Ajouter support WebSocket pour positions GPS
-- [ ] Notifications temps réel pour trips/incidents
-- [ ] Live updates pour dashboard admin
-- [ ] Chat temps réel client-chauffeur
-
-### 1.2 Sécurité Avancée
-- [ ] Rate limiting avec slowapi (déjà configuré)
-- [ ] Headers de sécurité (CORS, CSP, HSTS)
-- [ ] Protection CSRF
-- [ ] Sanitization des entrées
-- [ ] Limitation des requêtes par IP
-
-### 1.3 Monitoring & Health
-- [ ] Endpoint /health complet (DB, Redis, external services)
-- [ ] Métriques Prometheus
-- [ ] Intégration Grafana dashboard
-- [ ] Logging structuré JSON
-
-### 1.4 API Versioning
-- [ ] Versionnage URL /api/v1/
-- [ ] Dépréciation gracieuse
-- [ ] Documentation OpenAPI complète
-
-### 1.5 Services Métier
-- [ ] Service SMS pour notifications
-- [ ] Service Email pour confirmations
-- [ ] Service Push (Firebase)
-- [ ] Background tasks (Celery/Redis queue)
-
-### 1.6 Base de données
-- [ ] Migrations Alembic complètes
-- [ ] Index optimisés
-- [ ] Requêtes paginées
-- [ ] Transactions atomiques
-
-## 2. Mobile App (KivyMD)
-
-### 2.1 Écrans à ajouter
-- [ ] Splash screen animé
-- [ ] Onboarding complet (5 écrans)
-- [ ] Écran carte interactive (MapView)
-- [ ] Écran wallet/rechargement
-- [ ] Écran paramètres complets
-- [ ] Écran aide/support
-- [ ] Écran historique financier
-
-### 2.2 Fonctionnalités
-- [ ] Mode offline partiel
-- [ ] Push notifications (FCM)
-- [ ] Lecture vocale (TTS)
-- [ ] Authentification biométrique
-- [ ] Géolocalisation continue
-
-### 2.3 UI/UX
-- [ ] Animations fluides
-- [ ] Transitions между экранами
-- [ ] Skeleton loading
-- [ ] Pull-to-refresh
-- [ ] Dark mode complet
-
-## 3. Vehicle Device (Raspberry Pi)
-
-### 3.1 Écrans KivyMD
-- [ ] Splash screen
-- [ ] Login avec empreinte
-- [ ] Écran d'attente (idle)
-- [ ] Proposition entrante (TTS + klaxon)
-- [ ] Trajet en cours (GPS)
-- [ ] Trajet terminé
-
-### 3.2 Fonctionnalités Hardware
-- [ ] Détection klaxon (librosa)
-- [ ] Camera (picamera2)
-- [ ] GPS (gpsd)
-- [ ] QR scanner (pyzbar)
-- [ ] Mode offline
-
-### 3.3 Audio
-- [ ] TTS pour propositions
-- [ ] Feedback vocal
-
-## 4. Desktop Admin (CustomTkinter)
-
-### 4.1 Modules existants à renforcer
-- [ ] Graphiques matplotlib (revenus, trips)
-- [ ] Filtres avancés
-- [ ] Export PDF/CSV complet
-- [ ] Recherche full-text
-
-### 4.2 Nouveaux modules
-- [ ] Carte interactive (vehicules)
-- [ ] Timeline incidents
-- [ ] Analytics avancé
-- [ ]Gestion des zones
-
-### 4.3 UI/UX
-- [ ] Thèmes multiples
-- [ ] Animations
-- [ ] Notifications toast
-
-## 5. Tests & Documentation
-
-### 5.1 Tests
-- [ ] Couverture > 80%
-- [ ] Tests d'intégration API
-- [ ] Tests E2E (Playwright/Cypress)
-- [ ] Tests de sécurité (SQL injection, XSS)
-- [ ] Tests de charge (Locust)
-
-### 5.2 Documentation
-- [ ] API docs (Swagger/OpenAPI)
-- [ ] Guide installation
-- [ ] Guide développement
-- [ ] Charte de contribution
-
-## 6. Infrastructure
-
-### 6.1 Docker
-- [ ] Dockerfile optimisé
-- [ ] docker-compose complet
-- [ ] Health checks
-
-### 6.2 CI/CD
-- [ ] GitHub Actions
-- [ ] Tests automatisés
-- [ ] Déploiement automatique
-
-### 6.3 Monitoring
-- [ ] Prometheus metrics
-- [ ] Grafana dashboards
-- [ ] Alerting
-- [ ] Logs centralisés
+# MobiTranz Prochaines Ameliorations
 
 ---
 
-## Priorités d'implémentation
+## Realise
 
-### Phase 1 (Maintenant)
-1. WebSocket backend
-2. Tests > 80%
-3. Mobile screens essentiels
-4. Vehicle screens KivyMD
+### Backend
+- [x] WebSocket temps reel (GPS, statuts, incidents)
+- [x] Rate limiting Redis (remplace in-memory)
+- [x] Headers de securite (CORS, CSP, HSTS)
+- [x] Protection CSRF (via utils/security.py)
+- [x] Sanitization des entrees
+- [x] Limitation des requetes par IP (Redis)
+- [x] Endpoint /health complet (DB + Redis + uptime)
+- [x] Metriques Prometheus
+- [x] Integration Grafana (datasource provisionnee)
+- [x] Logging structure JSON (structlog)
+- [x] API versioning /api/v1/
+- [x] Documentation OpenAPI complete
+- [x] Service SMS (Africa's Talking)
+- [x] Service Push FCM (Firebase)
+- [x] Background tasks Celery + Redis
+- [x] Migrations Alembic completes (5 revisions)
+- [x] Index optimises (003_indexes.py)
+- [x] Requetes paginees
+- [x] Audit hash chain SHA-256
+- [x] Auth JWT WebSocket
+- [x] Blacklist tokens Redis (logout)
+- [x] Protection injection SQL (regex)
+- [x] FCM v1 OAuth2 (JWT service account)
+- [x] Multi-stage Docker + .dockerignore
+- [x] pyproject.toml (ruff, mypy, pytest)
+- [x] Sentry monitoring
+- [x] 164 tests fonctionnels
 
-### Phase 2 (Court terme)
-1. Documentation API
-2. Monitoring
-3. Sécurité renforcée
-4. Offline mobile
+### Administration
+- [x] PHP Admin connecte a l'API reelle
+- [x] Dashboard Ministere connecte a l'API reelle
+- [x] Credentials hardcodes supprimes
+- [x] Session fixation PHP corrigee
 
-### Phase 3 (Moyen terme)
-1. CI/CD complet
-2. Tests E2E
-3. Analytics avancés
-4. Infrastructure production
+### Infrastructure
+- [x] Dockerfile optimise multi-stage
+- [x] docker-compose dev + prod
+- [x] Health checks DB, Redis, Celery
+- [x] Grafana provisioning datasource
+- [x] Prometheus targets corrects
+
+---
+
+## A Faire
+
+### Phase 1 Court terme
+
+#### Securite
+- [ ] Rate limiting WebSocket par IP
+- [ ] Validation taille fichiers upload (audio, images)
+- [ ] Endpoint de-registration device token FCM
+- [ ] Tests de securite automatises (bandit + safety CI)
+- [ ] Renouvellement automatique token OAuth2 FCM
+
+#### Tests
+- [ ] Tests integration avec test containers PostgreSQL
+- [ ] Tests de charge (Locust)
+- [ ] Tests E2E WebSocket
+- [ ] Couverture > 85%
+
+#### Mobile (Kivy)
+- [ ] Mode offline partiel
+- [ ] Push notifications FCM
+- [ ] Lecture vocale TTS
+- [ ] Authentification biometrique
+- [ ] Geoloalisation continue
+
+### Phase 2 Moyen terme
+
+#### Backend
+- [ ] Cache Redis pour les requetes frequentes (zones, drivers)
+- [ ] Pagination curseur pour grandes tables (audit_logs)
+- [ ] Export PDF des rapports ministere
+- [ ] API de recherche full-text (trigrammes PostgreSQL)
+- [ ] Versioning schema BDD (migrations downgrade testees)
+
+#### Infrastructure
+- [ ] Manifests Kubernetes (Helm charts)
+- [ ] Terraform pour provisioning cloud
+- [ ] CI/CD deploiement automatique staging/prod
+- [ ] Backup automatise BDD (pg_dump cron)
+- [ ] Rate limiting WebSocket par IP
+- [ ] Alerting Grafana (email + Slack)
+
+#### Vehicle Device
+- [ ] Mode hors-ligne complet avec sync
+- [ ] Mise a jour firmware OTA
+- [ ] Diagnostic hardware auto
+
+### Phase 3 Long terme
+
+- [ ] Multi-langues (Francais, Anglais, langues locales)
+- [ ] Chat temps reel client-conducteur (WebSocket)
+- [ ] Chatbot IA pour support client
+- [ ] Dashboard conducteur avec analytics personnels
+- [ ] Wallet rechargeable avec historique
+- [ ] Programme de fidelite
+- [ ] API publique pour partenaires
+- [ ] Application iOS native (Swift)
+- [ ] Paiement par QR code statique commerçant
+
+---
+
+## Priorites
+
+1. Tests integration PostgreSQL
+2. Mode offline mobile
+3. CI/CD complet
+4. Kubernetes / scaling
+5. Backup automatise

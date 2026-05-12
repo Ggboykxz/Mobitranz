@@ -1,64 +1,95 @@
-# MobiTranz 🇬🇦
+# MobiTranz
 
-> **Plateforme de paiement numérique pour le transport gabonais**
->
-> Client + Conducteur + Admin + Ministère — une seule application.
+> **Plateforme de paiement numerique pour le transport gabonais**
+> Client + Conducteur + Admin + Ministere une seule application.
 
-[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com)
-[![Tests](https://img.shields.io/badge/Tests-76%2F76%20PASSING-brightgreen.svg)](backend/tests/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-164%20PASSING-brightgreen.svg)](backend/tests/)
+[![License](https://img.shields.io/badge/License-Proprietary-yellow.svg)](LICENSE)
 
 ---
 
-## 🎯 Fonctionnalités
+## Fonctionnalites
 
 | Module | Description |
 |--------|-------------|
-| **Auth** | JWT + TOTP 2FA + Biométrie |
-| **Paiements** | MoovMoney, Airtel Money, Carte, Espèces |
+| **Auth** | JWT + TOTP 2FA + Biometrie + blacklist Redis |
+| **Paiements** | MoovMoney, Airtel Money (async via Celery) |
 | **Voice NLP** | Transcription vocale (destination + montant + places) |
-| **QR Codes** | QR dynamique signé, expiration 5 min |
-| **Horn Detection** | Détection klaxon accept/refus par FFT |
-| **Camera** | Flux vidéo chiffré AES-256-GCM |
-| **Notifications** | Push FCM (Android/iOS) |
-| **Analytics** | KPIs temps réel, rapport ministère CSV |
+| **QR Codes** | QR dynamique signe HMAC, expiration 5 min, usage unique |
+| **Horn Detection** | Detection klaxon accept/refus par FFT (librosa) |
+| **Camera** | Flux video chiffre AES-256-GCM |
+| **Notifications** | Push FCM (Android/iOS) via OAuth2 |
+| **SMS** | Africa's Talking API pour reset password |
+| **Analytics** | KPIs temps reel, rapport ministere CSV |
 | **Zones** | 7 zones tarifaires Libreville (PK5, Owendo, Akanda...) |
+| **WebSocket** | Temps reel GPS, statuts, incidents (auth JWT) |
+| **Audit** | Journal append-only avec hash chain SHA-256 |
+| **Monitoring** | Prometheus + Grafana + Sentry |
 
 ---
 
-## 🗂️ Structure
+## Architecture
+
+```
+nginx (reverse proxy TLS 1.3)
+  |
+  +-- /api/v1/* -> FastAPI backend (:8000)
+  |     +-- Routers (10) -> Services (15) -> Models (13)
+  |     +-- WebSocket (auth JWT)
+  |     +-- Celery Worker (file attente asynchrone)
+  |
+  +-- PostgreSQL 15 + Redis 7
+  +-- Prometheus + Grafana
+  +-- MinIO (stockage videos)
+
+Clients:
+  +-- Mobile App (Kivy/KivyMD - 19 ecrans)
+  +-- Vehicle Device (Raspberry Pi - 6 ecrans)
+  +-- Desktop Admin (CustomTkinter - 10 modules)
+  +-- PHP Admin Panel (fallback web)
+  +-- Ministry Dashboard (Dash/Plotly)
+```
+
+---
+
+## Structure
 
 ```
 mobitranz/
-├── backend/              # FastAPI API
-│   ├── routers/         # 9 endpoints routers
-│   ├── services/        # 8 services métier
-│   ├── models/           # 11 modèles SQLAlchemy
-│   ├── schemas/          # Pydantic schemas
-│   ├── deps/             # Auth dependencies
-│   ├── scripts/          # Seed DB
-│   └── tests/            # 76 tests
-├── mobile/               # Kivy Mobile App
-│   └── screens/          # 17 écrans
-├── desktop_admin/        # CustomTkinter Windows 11
-│   └── windows/modules/  # 10 modules Fluent
-├── vehicle_device/        # App tablette véhicule
-├── ministry_dashboard/    # Dash Plotly ministère
-├── alembic/              # Migrations DB
-├── docker-compose.yml     # PostgreSQL + Redis + MinIO
-├── requirements*.txt     # Dépendances splittées
-└── nginx.conf           # Reverse proxy SSL
+  backend/                  # FastAPI API
+    routers/               # 10 endpoints routers
+    services/              # 15 services metier
+    tasks/                 # 3 taches Celery
+    models/                # 13 modeles SQLAlchemy
+    schemas/               # Schemas Pydantic
+    deps/                  # Dependances auth
+    middleware/            # Rate limiting Redis + securite
+    scripts/               # Seed DB
+    tests/                 # 164 tests fonctionnels
+  mobile/                  # Kivy Mobile App
+    screens/               # 19 ecrans
+  desktop_admin/           # CustomTkinter Windows 11
+  vehicle_device/          # App tablette vehicule (Pi)
+  ministry_dashboard/      # Dash Plotly ministere
+  php_admin/               # Panneau admin PHP
+  alembic/                 # Migrations DB (5 revisions)
+  tasks/                   # Taches Celery
+  shared/                  # Client API partage
+  docker-compose.yml       # Dev
+  docker-compose.prod.yml  # Production
+  pyproject.toml           # Config Python standard
 ```
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### Prérequis
-- Python 3.13+
-- Docker Desktop (pour PostgreSQL + Redis)
-- ffmpeg (pour horn detection)
+### Pre-requis
+- Python 3.12+
+- Docker Desktop (PostgreSQL + Redis)
+- ffmpeg (horn detection)
 
 ### 1. Cloner
 ```bash
@@ -66,31 +97,27 @@ git clone https://github.com/ggboyykxz/mobitranz.git
 cd mobitranz
 ```
 
-### 2. Base de données
+### 2. Base de donnees
 ```bash
 docker compose up -d postgres redis
 ```
 
-### 3. Dépendances
+### 3. Dependances
 ```bash
-pip install -r requirements.txt
-# ou
-pip install -r requirements-backend.txt
-pip install -r requirements-services.txt
+pip install -r requirements/requirements-backend.txt
 ```
 
 ### 4. Variables d'environnement
 ```bash
 cp .env.example .env
-# Éditer .env avec vos clés API
 ```
 
 ### 5. Migrations
 ```bash
-cd alembic && alembic upgrade head
+alembic upgrade head
 ```
 
-### 6. Seed (données initiales)
+### 6. Seed
 ```bash
 python backend/scripts/seed.py
 ```
@@ -102,69 +129,65 @@ uvicorn backend.main:app --reload --port 8000
 
 ---
 
-## 📱 Mobile
+## Lancement rapide (tout Docker)
 
 ```bash
-# Android (APK)
-pip install buildozer
-buildozer android debug
-
-# Desktop Linux/Mac
-python -m mobile.main
-```
-
----
-
-## 🖥️ Desktop Admin
-
-```bash
-pip install -r requirements-admin.txt
-python desktop_admin/main.py
-```
-
----
-
-## 🐳 Docker
-
-```bash
-# Tout infrastructure
 docker compose up -d
-
-# Avec API
-docker compose --profile api up -d
 ```
 
 ---
 
-## 🧪 Tests
+## Tests
 
 ```bash
-# Tous les tests
 pytest backend/tests/ -v
-
-# Avec coverage
-pytest backend/tests/ --cov=backend --cov-report=html --cov-report=term
-
-# Tests d'intégration multi-rôles
-pytest backend/tests/test_integration.py -v
-
-# Un fichier
+pytest backend/tests/ --cov=backend --cov-report=term
 pytest backend/tests/test_auth.py -v
-pytest backend/tests/test_voice.py -v
 ```
 
-**Résultat : 76/76 PASSING**
+**Resultat : 164/164 PASSING**
 
 ---
 
-## 🔑 Identifiants (après seed)
+## API Endpoints
 
-```text
+Tous les endpoints sont prefixes par `/api/v1/`.
+
+| Route | Methode | Auth | Description |
+|-------|--------|------|-------------|
+| `/auth/login` | POST | - | Connexion |
+| `/auth/register` | POST | - | Inscription |
+| `/auth/refresh` | POST | - | Rafraichir tokens |
+| `/auth/logout` | POST | JWT | Deconnexion (blacklist) |
+| `/auth/totp/setup` | GET | JWT | Generer secret TOTP |
+| `/auth/password-reset/request` | POST | - | Demande reset SMS |
+| `/trips/` | POST | JWT | Creer trajet |
+| `/trips/{id}` | GET | JWT | Details trajet |
+| `/trips/{id}/join` | POST | JWT | Rejoindre trajet |
+| `/trips/{id}/horn` | POST | JWT | Valider klaxon |
+| `/payments/initiate` | POST | JWT | Initier paiement |
+| `/payments/webhook` | POST | - | Webhook MoovMoney/Airtel |
+| `/voice/proposal` | POST | JWT | Proposition vocale |
+| `/voice/transcribe` | POST | JWT | Transcrire audio |
+| `/drivers/available` | GET | JWT | Conducteurs disponibles |
+| `/vehicles/register` | POST | JWT | Enregistrer vehicule |
+| `/incidents/report` | POST | JWT | Signaler incident |
+| `/admin/dashboard/kpis` | GET | Admin | KPIs temps reel |
+| `/admin/logs` | GET | Admin | Audit logs (hash chain) |
+| `/analytics/kpis` | GET | JWT | KPIs temps reel |
+| `/analytics/ministry-report` | GET | JWT | Rapport ministere |
+| `/ws/{channel}` | WS | JWT (query) | WebSocket temps reel |
+
+---
+
+## Identifiants (apres seed)
+
+```
 === ADMIN ===
 +24101020304  / AdminMobitranz2026!
 +24102030405  / SuperAdmin2026!
 
-=== MINISTÈRE ===
+=== MINISTERE ===
 +24103040506  / Ministere2026!
 
 === CONDUCTEURS ===
@@ -178,78 +201,57 @@ pytest backend/tests/test_voice.py -v
 
 ---
 
-## 🔌 API Endpoints
+## Variables d'environnement requises
 
-| Route | Méthode | Description |
-|-------|--------|-------------|
-| `/auth/login` | POST | Connexion |
-| `/auth/register` | POST | Inscription |
-| `/auth/totp/setup` | GET | Générer secret TOTP |
-| `/auth/logout` | POST | Déconnexion |
-| `/auth/password-reset/request` | POST | Demande reset |
-| `/trips/` | POST | Créer trajet |
-| `/trips/{id}/join` | POST | Rejoindre trajet |
-| `/trips/{id}/horn` | POST | Valider klaxon |
-| `/payments/initiate` | POST | Initier paiement |
-| `/payments/webhook` | POST |Webhook MoovMoney/Airtel |
-| `/voice/proposal` | POST | Soumettre proposition vocale |
-| `/incidents/report` | POST | Signaler incident |
-| `/analytics/kpis` | GET | KPIs temps réel |
-| `/analytics/ministry-report` | GET | Rapport ministère |
-| `/drivers/available` | GET | Conducteurs disponibles |
-
----
-
-## ☁️ Déploiement
-
-### Railway / Render
-```bash
-# Variables requises
+```
+SECRET_KEY=<cle 32 bytes aleatoire>
+JWT_SECRET=<cle 32 bytes>
 DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
 REDIS_URL=redis://host:6379/0
-SECRET_KEY=<32-bytes-random>
-MOOVMONEY_API_URL=https://api.moovmoney.ga/v1
-AIRTELMONEY_API_URL=https://api.airtelmoney.ga/v1
-```
+CORS_ORIGINS=http://localhost:3000,https://app.mobitranz.ga
 
-### VPS (Ubuntu)
-```bash
-# 1. Installer Docker
-# 2. Clone repo
-# 3. docker compose up -d
-# 4. python backend/scripts/seed.py
-# 5. nginx -s reload
+# Optionnel
+SENTRY_DSN=https://...
+AFRICASTALKING_API_KEY=...
+AFRICASTALKING_USERNAME=...
+FIREBASE_CREDENTIALS_PATH=...
+MOOVMONEY_API_URL=...
+AIRTELMONEY_API_URL=...
 ```
 
 ---
 
-## 📦 Dépendances
+## Taches asynchrones (Celery)
 
-| Fichier | Usage |
-|---------|-------|
-| `requirements-backend.txt` | API FastAPI |
-| `requirements-services.txt` | Audio/ML (librosa, scipy) |
-| `requirements-admin.txt` | Desktop Admin (CustomTkinter) |
-| `requirements-mobile.txt` | Mobile App (Kivy) |
+```bash
+# Lancer le worker
+celery -A backend.tasks.celery_app worker --loglevel=info --concurrency=4
+
+# Lancer le beat (taches periodiques)
+celery -A backend.tasks.celery_app beat --loglevel=info
+```
 
 ---
 
-## 🛠️ Développement
+## Docker Production
 
 ```bash
-# Formatage code
+docker compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+## Developpement
+
+```bash
 ruff check backend/ --fix
 ruff format backend/
-
-# Type checking
 mypy backend/
-
-# Lint
-ruff check backend/
+pytest backend/tests/ --cov=backend
 ```
 
 ---
 
-## 📄 License
+## Licence
 
-MIT © 2026 MobiTranz Gabon
+Proprietaire 2026 MobiTranz Gabon

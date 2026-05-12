@@ -1,182 +1,94 @@
-# MobiTranz — Documentation des Agents et Automatisations
-
-Ce fichier documente les agents, scripts et automatisations disponibles pour le projet MobiTranz.
+# MobiTranz Documentation des Agents et Automatisations
 
 ---
 
-## Agents Disponibles
+## Commandes Disponibles
 
-### 1. Agent Audit et Corrections
-
-**Description**: Analyse le projet et corrige les bugs identifiés.
-
-**Commande**:
-```
-/audit
-```
-
-**Fonctionnalités**:
-- Analyse syntaxique de tous les fichiers Python
-- Vérification des imports et dépendances
-- Exécution des tests unitaires
-- Correction automatique des erreurs triviales
-- Rapport des problèmes non résolus
+| Commande | Description |
+|----------|-------------|
+| `/audit` | Analyse et corrige les bugs |
+| `/test [fichier]` | Execute les tests (option: fichier specifique) |
+| `/docs` | Met a jour la documentation |
+| `/security` | Scan de securite |
 
 ---
 
-### 2. Agent Tests
+## Scripts de Developpement
 
-**Description**: Exécute et génère des rapports de tests.
-
-**Commande**:
-```
-/test [fichier|module]
-```
-
-**Fonctionnalités**:
-- Exécution des tests pytest
-- Génération de rapport de couverture
-- Tests unitaires, intégration et sécurité
-- Vérification du taux de couverture (>80%)
-
----
-
-### 3. Agent Documentation
-
-**Description**: Génère et met à jour la documentation.
-
-**Commande**:
-```
-/docs
-```
-
-**Fonctionnalités**:
-- Génération docstrings manquantes
-- Création README pour chaque module
-- Export documentation API
-- Vérification conformité cahier des charges
-
----
-
-### 4. Agent Sécurité
-
-**Description**: Analyse les vulnérabilités de sécurité.
-
-**Commande**:
-```
-/security
-```
-
-**Fonctionnalités**:
-- Scan injection SQL
-- Vérification authentification
-- Analyse des dépendances vulnérables
-- Audit des tokens et clés
-
----
-
-## Scripts de Développement
-
-### Linting
-
+### Linting (via pyproject.toml)
 ```bash
-# Linting Python
-python -m flake8 backend/ --max-line-length=100
-python -m black backend/ --check
-python -m mypy backend/
+ruff check backend/
+ruff format backend/
+mypy backend/
 ```
 
 ### Tests
-
 ```bash
-# Tous les tests
-python -m pytest backend/tests/ -v
-
-# Couverture
-python -m pytest backend/tests/ --cov=backend --cov-report=html
+pytest backend/tests/ -v
+pytest backend/tests/ --cov=backend --cov-report=html
+pytest backend/tests/test_auth.py -v
 ```
 
-### Démarrage
-
+### Demarrage
 ```bash
-# Backend FastAPI
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-
-# App Mobile (nécessite buildozer)
-buildozer android debug
-
-# App Desktop Admin
+celery -A backend.tasks.celery_app worker --loglevel=info
 python desktop_admin/main.py
-
-# Raspberry Pi Vehicle
+python mobile/main.py
 python vehicle_device/main.py
 ```
 
 ---
 
-## Commandes Utiles
-
-| Commande | Description |
-|----------|-------------|
-| `/audit` | Analyse et corrige les bugs |
-| `/test` | Exécute les tests |
-| `/docs` | Génère la documentation |
-| `/security` | Scan de sécurité |
-| `git status` | Vérifie les modifications |
-| `git commit -m "fix: ..."` | Commit avec Conventional Commits |
-
----
-
-## Patterns de Développement
+## Patterns de Developpement
 
 ### Ajouter un nouveau router
-
-1. Créer `backend/routers/nouveau_module.py`
-2. Implémenter les endpoints avec documentation
-3. Ajouter les imports dans `backend/main.py`
-4. Créer les tests dans `backend/tests/test_nouveau_module.py`
+1. Creer `backend/routers/nouveau_module.py`
+2. Implementer les endpoints avec `Depends(get_current_user)` pour la securite
+3. Ajouter dans `backend/main.py` avec prefix `/api/v1/`
+4. Creer les tests dans `backend/tests/test_nouveau_module.py`
 
 ### Ajouter un nouveau service
+1. Creer `backend/services/mon_service.py`
+2. Implementer la classe avec structlog
+3. Exposer via un routeur avec Pydantic schemas
 
-1. Créer `backend/services/mon_service.py`
-2. Implémenter la classe de service
-3. Ajouter les modèles si nécessaire
-4. Exposer via un router
-
-### Ajouter un écran mobile
-
-1. Créer `mobile/screens/role/nom_ecran.py`
-2. Implémenter la classe KivyScreen
-3. Ajouter dans `mobile/main.py` ScreenManager
+### Ajouter une tache Celery
+1. Creer `backend/tasks/mon_task.py`
+2. Decorator `@celery_app.task(bind=True, max_retries=3)`
+3. Appeler avec `ma_task.delay(...)`
 
 ---
 
-## Déploiement
+## API
 
-### Docker
+Tous les endpoints sont prefixes par `/api/v1/`.
 
-```bash
-# Construction image
-docker build -t mobitranz/backend:latest .
-
-# Lancement avec docker-compose
-docker-compose up -d
-```
-
-### Production
-
-```bash
-# Migration base de données
-alembic upgrade head
-
-# Démarrage uvicorn avec workers
-uvicorn backend.main:app --workers 4 --host 0.0.0.0 --port 8000
-```
+Documentation Swagger : `http://localhost:8000/docs`
 
 ---
 
 ## Monitoring
 
-- **Prometheus**: Métriques sur `http://localhost:9090`
-- **Grafana**: Dashboard sur `http://localhost:3000`
-- **Logs**: Structurés JSON, niveau configurable via `LOG_LEVEL`
+- **Prometheus**: `http://localhost:9090`
+- **Grafana**: `http://localhost:3000` (admin / ${GRAFANA_PASSWORD})
+- **Sentry**: Configure via SENTRY_DSN
+- **Logs**: Structlog JSON, niveau via LOG_LEVEL
+
+---
+
+## Infrastructure
+
+```bash
+# Dev
+docker compose up -d
+
+# Production
+docker compose -f docker-compose.prod.yml up -d
+
+# Migrations
+alembic upgrade head
+
+# Seed
+python backend/scripts/seed.py
+```
