@@ -5,7 +5,7 @@
 # ============================================================
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
@@ -13,7 +13,7 @@ import structlog
 
 from backend.config import settings
 from backend.database import get_db
-from backend.deps.auth_deps import get_current_user
+from backend.deps.auth_deps import get_current_user, security
 from backend.schemas.auth import (
     UserLogin,
     UserRegister,

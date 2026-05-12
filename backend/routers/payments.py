@@ -101,12 +101,10 @@ async def payment_webhook(
     db: AsyncSession = Depends(get_db),
     x_signature: str = Header(None, alias="X-Signature"),
     x_provider: str = Header(None, alias="X-Provider"),
-    current_user: User = Depends(get_current_user),
 ):
-    """Webhook pour recevoir les callbacks des providers de paiement.
+    """Webhook pour les callbacks des providers de paiement.
 
-    Endpoint appelé par MoovMoney/Airtel Money lors du changement
-    de statut d'un paiement.
+    Verifie la signature HMAC, pas de JWT requis (appels serveur->serveur).
     """
     if not x_signature:
         logger.warning("Webhook sans signature", provider=x_provider)

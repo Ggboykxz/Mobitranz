@@ -36,11 +36,13 @@ class PaymentResponse(BaseModel):
 
 
 class PaymentWebhook(BaseModel):
-    """Schéma pour le webhook de paiement."""
+    """Schema pour le webhook de paiement (appels serveur->serveur)."""
 
     transaction_id: str = Field(..., description="ID de transaction")
-    status: str = Field(..., description="Statut")
-    message: Optional[str] = Field(None, description="Message")
+    status: str = Field(..., description="Statut (success/failed)")
+    amount: int = Field(0, description="Montant en FCFA")
+    message: Optional[str] = Field(None, description="Message optionnel")
+    external_reference: Optional[str] = Field(None, description="Reference provider")
 
 
 class PaymentConfirmRequest(BaseModel):

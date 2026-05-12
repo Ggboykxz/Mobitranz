@@ -223,6 +223,34 @@ services:
       - mobitranz-network
 
   # ============================================================
+  # PostgreSQL Exporter
+  # ============================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: mobitranz-pg-exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://mobitranz:${DB_PASSWORD}@db:5432/mobitranz?sslmode=disable
+    depends_on:
+      - db
+    networks:
+      - mobitranz-network
+
+  # ============================================================
+  # Redis Exporter
+  # ============================================================
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: mobitranz-redis-exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    networks:
+      - mobitranz-network
+
+  # ============================================================
   # Prometheus - Metrics
   # ============================================================
   prometheus:

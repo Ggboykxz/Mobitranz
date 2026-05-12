@@ -88,8 +88,7 @@ def run_headless_server():
     PORT = 8002
     ADMIN_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'php_admin')
 
-    print(f"🚀 Starting MobiTranz Admin on http://localhost:{PORT}")
-    print("   Login: admin / admin123")
+    print(f"Starting MobiTranz Admin on http://localhost:{PORT}")
 
     os.chdir(ADMIN_DIR)
     os.execvp('php', ['php', '-S', f'0.0.0.0:{PORT}', '-t', '.'])

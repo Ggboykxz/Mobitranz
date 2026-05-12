@@ -1,4 +1,5 @@
 import os
+import re
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -8,6 +9,11 @@ import asyncio
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+sqlalchemy_url = config.get_main_option("sqlalchemy.url")
+sqlalchemy_url = re.sub(r"\$\{(\w+):-([^}]+)\}", lambda m: os.getenv(m.group(1), m.group(2)), sqlalchemy_url)
+sqlalchemy_url = re.sub(r"\$\{(\w+)\}", lambda m: os.getenv(m.group(1), ""), sqlalchemy_url)
+config.set_main_option("sqlalchemy.url", sqlalchemy_url)
 
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

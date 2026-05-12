@@ -13,6 +13,7 @@ celery_app = Celery(
         "backend.tasks.payment_tasks",
         "backend.tasks.notification_tasks",
         "backend.tasks.ministry_tasks",
+        "backend.tasks.backup_tasks",
     ],
 )
 
@@ -30,4 +31,18 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
 )
 
-logger.info("Celery app initialisée", broker=settings.redis_url)
+celery_app.conf.beat_schedule = {
+    "backup-database-daily": {
+        "task": "backup_tasks.run_backup",
+        "schedule": crontab(hour=2, minute=0),
+        "options": {"queue": "backup"},
+    },
+    "generate-ministry-report-monthly": {
+        "task": "ministry_tasks.generate_monthly_report",
+        "schedule": crontab(day=1, hour=3, minute=0),
+    },
+}
+
+from celery.schedules import crontab
+
+logger.info("Celery app initialisee", broker=settings.redis_url)

@@ -97,14 +97,14 @@ services:
     volumes:
       - ./logs:/app/logs
 
-  # Admin Desktop (optional)
+  # Admin Desktop (optionnel - interface PHP)
   desktop-admin:
-    build:
-      context: .
-      dockerfile: Dockerfile.desktop
+    image: php:8.4-apache
     container_name: mobitranz-desktop
     ports:
-      - "8001:8001"
+      - "8001:80"
+    volumes:
+      - ./php_admin:/var/www/html
     depends_on:
       - backend
     networks:
