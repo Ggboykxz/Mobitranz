@@ -12,6 +12,7 @@ from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.menu import MDDropdownMenu
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class HomeScreen(Screen):
@@ -125,6 +126,10 @@ class HomeScreen(Screen):
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.load_data())
 
+    def on_leave(self):
+        if hasattr(self, '_dashboard_data'):
+            cache_service.set("dashboard", self._dashboard_data)
+
     def open_menu(self):
         menu_items = [
             {
@@ -149,13 +154,31 @@ class HomeScreen(Screen):
 
     async def load_data(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cached = cache_service.get("dashboard")
+        if cached:
+            stats = cached.get("stats", {})
+            user = cached.get("user", {})
+            Clock.schedule_once(lambda dt: self.update_ui(stats, user))
         try:
             data = await api_client.get("/api/v1/dashboard")
+            self._dashboard_data = data
+            cache_service.set("dashboard", data)
             stats = data.get("stats", {})
             user = data.get("user", {})
             Clock.schedule_once(lambda dt: self.update_ui(stats, user))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self.show_error(str(e)))
+            if not cached:
+                stale = cache_service.get_stale("dashboard")
+                if stale:
+                    self._dashboard_data = stale
+                    s = stale.get("stats", {})
+                    u = stale.get("user", {})
+                    Clock.schedule_once(lambda dt: self.update_ui(s, u))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self.show_error(str(e)))
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
@@ -174,7 +197,28 @@ class HomeScreen(Screen):
 
     def navigate(self, screen_name):
         if self.manager and hasattr(self.manager, "current"):
-            self.manager.current = screen_name
+            self.manager.switch(screen_name)
 
     def go_to_profile(self):
-        self.manager.current = "profile"
+        self.manager.switch("profile")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None

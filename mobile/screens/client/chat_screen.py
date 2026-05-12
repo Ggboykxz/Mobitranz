@@ -12,6 +12,7 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.scrollview import MDScrollView
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class ChatBubble(MDCard):
@@ -141,7 +142,28 @@ class ChatScreen(Screen):
     def go_back(self):
         if self._poll_event:
             self._poll_event.cancel()
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def call_driver(self):
         MDSnackbar(text="Appel en cours...", snackbar_x=10, snackbar_y=10).open()
@@ -158,6 +180,8 @@ class ChatScreen(Screen):
         if self._poll_event:
             self._poll_event.cancel()
             self._poll_event = None
+        if self._messages:
+            cache_service.set(f"chat_{self._trip_id}", self._messages)
 
     def add_dummy_messages(self):
         self.messages_layout.clear_widgets()
@@ -172,12 +196,25 @@ class ChatScreen(Screen):
 
     async def load_messages(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cache_key = f"chat_{self._trip_id}"
+        cached = cache_service.get(cache_key)
+        if cached:
+            Clock.schedule_once(lambda dt: self.render_messages(cached))
         try:
             data = await api_client.get(f"/api/v1/trips/{self._trip_id}/messages")
             messages = data.get("messages", data.get("data", []))
+            self._messages = messages
+            cache_service.set(cache_key, messages)
             Clock.schedule_once(lambda dt: self.render_messages(messages))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception:
-            pass
+            if not cached:
+                stale = cache_service.get_stale(cache_key)
+                if stale:
+                    self._messages = stale
+                    Clock.schedule_once(lambda dt: self.render_messages(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 

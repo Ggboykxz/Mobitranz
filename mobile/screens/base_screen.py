@@ -9,6 +9,7 @@ from kivymd.uix.snackbar import MDSnackbar, MDSnackbarText
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivy.core.window import Window
+from mobile.services.cache_service import cache_service
 
 
 class BaseScreen(MDScreen):
@@ -107,6 +108,27 @@ class BaseScreen(MDScreen):
 
     def safe_ui_update(self, callback):
         Clock.schedule_once(lambda dt: callback())
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_back_button(self):
         if self.manager and len(self.manager.screen_names) > 0:

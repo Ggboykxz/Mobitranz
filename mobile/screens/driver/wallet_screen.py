@@ -12,6 +12,7 @@ from kivymd.uix.top_appbar import MDTopAppBar
 from kivymd.uix.scrollview import MDScrollView
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 import asyncio
 
 
@@ -140,21 +141,44 @@ class WalletScreen(MDScreen):
     def on_enter(self):
         Clock.schedule_once(lambda dt: self._load_data(), 0.1)
 
+    def on_leave(self):
+        if hasattr(self, '_wallet_cached'):
+            cache_service.set("wallet", self._wallet_cached)
+
     def _refresh(self):
         self._load_data()
 
     def _load_data(self):
         self._loading = True
         self.spinner.active = True
+        self.hide_offline_banner()
         asyncio.ensure_future(self._fetch_wallet())
 
     async def _fetch_wallet(self):
+        cached = cache_service.get("wallet")
+        if cached:
+            self._wallet_cached = cached
+            Clock.schedule_once(lambda dt: self._update_wallet(
+                cached.get("wallet", {}), cached.get("transactions", [])
+            ))
         try:
             wallet_data = await api_client.get("/api/v1/wallet")
             txn_data = await api_client.get("/api/v1/wallet/transactions")
+            self._wallet_cached = {"wallet": wallet_data, "transactions": txn_data}
+            cache_service.set("wallet", self._wallet_cached)
             Clock.schedule_once(lambda dt: self._update_wallet(wallet_data, txn_data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self._show_error(str(e)))
+            if not cached:
+                stale = cache_service.get_stale("wallet")
+                if stale:
+                    self._wallet_cached = stale
+                    Clock.schedule_once(lambda dt: self._update_wallet(
+                        stale.get("wallet", {}), stale.get("transactions", [])
+                    ))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self._show_error(str(e)))
 
     def _update_wallet(self, wallet_data, txn_data):
         self._loading = False
@@ -228,5 +252,26 @@ class WalletScreen(MDScreen):
     def _show_snackbar(self, text):
         MDSnackbar(text=text, y=dp(24)).open()
 
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
+
     def _go_back(self):
-        self.manager.current = "driver_home"
+        self.manager.switch("driver_home")

@@ -12,6 +12,7 @@ from kivymd.uix.top_appbar import MDTopAppBar
 from kivymd.uix.dialog import MDDialog
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 from mobile.config import DEFAULT_LOCATION
 import asyncio
 
@@ -173,17 +174,51 @@ class TripActiveDriverScreen(MDScreen):
             self._location_event.cancel()
             self._location_event = None
 
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
+
     def _load_trip(self):
         self._loading = True
         self.spinner.active = True
         asyncio.ensure_future(self._fetch_trip())
 
     async def _fetch_trip(self):
+        self.hide_offline_banner()
+        cache_key = f"trip_driver_{self.trip_id}"
+        cached = cache_service.get(cache_key)
+        if cached:
+            Clock.schedule_once(lambda dt: self._update_trip(cached))
         try:
             data = await api_client.get(f"/api/v1/trips/{self.trip_id}")
+            cache_service.set(cache_key, data)
             Clock.schedule_once(lambda dt: self._update_trip(data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self._show_error(str(e)))
+            if not cached:
+                stale = cache_service.get_stale(cache_key)
+                if stale:
+                    Clock.schedule_once(lambda dt: self._update_trip(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self._show_error(str(e)))
 
     def _update_trip(self, data):
         self._loading = False
@@ -281,7 +316,7 @@ class TripActiveDriverScreen(MDScreen):
         if self._location_event:
             self._location_event.cancel()
             self._location_event = None
-        self.manager.current = "driver_home"
+        self.manager.switch("driver_home")
 
     def _complete_trip(self):
         if self._dialog:
@@ -301,7 +336,7 @@ class TripActiveDriverScreen(MDScreen):
             self._location_event = None
         self._show_snackbar("Trajet termine avec succes")
         self.trip_id = ""
-        self.manager.current = "driver_home"
+        self.manager.switch("driver_home")
 
     def _show_error(self, message):
         self._loading = False

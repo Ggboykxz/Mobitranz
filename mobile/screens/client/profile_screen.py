@@ -11,6 +11,7 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class ProfileScreen(Screen):
@@ -142,19 +143,58 @@ class ProfileScreen(Screen):
         self.add_widget(self.root)
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.load_profile())
 
+    def on_leave(self):
+        if self._user_data:
+            cache_service.set("profile", self._user_data)
+
     async def load_profile(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cached = cache_service.get("profile")
+        if cached:
+            self._user_data = cached
+            Clock.schedule_once(lambda dt: self.update_ui())
         try:
             data = await api_client.get("/api/v1/profile")
             self._user_data = data.get("user", data)
+            cache_service.set("profile", self._user_data)
             Clock.schedule_once(lambda dt: self.update_ui())
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            MDSnackbar(text=f"Erreur: {str(e)}", snackbar_x=10, snackbar_y=10).open()
+            if not cached:
+                stale = cache_service.get_stale("profile")
+                if stale:
+                    self._user_data = stale
+                    Clock.schedule_once(lambda dt: self.update_ui())
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    MDSnackbar(text=f"Erreur: {str(e)}", snackbar_x=10, snackbar_y=10).open()
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
@@ -268,10 +308,10 @@ class ProfileScreen(Screen):
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
     def go_to_notifications(self):
-        self.manager.current = "notifications"
+        self.manager.switch("notifications")
 
     def go_to_payment(self):
-        self.manager.current = "payment"
+        self.manager.switch("payment")
 
     def show_security(self):
         MDSnackbar(text="Securite - fonctionnalite a venir", snackbar_x=10, snackbar_y=10).open()
@@ -281,4 +321,4 @@ class ProfileScreen(Screen):
 
     def logout(self):
         api_client._access_token = None
-        self.manager.current = "login"
+        self.manager.switch("login")

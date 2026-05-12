@@ -10,6 +10,7 @@ from kivymd.uix.topappbar import MDTopAppBar
 from kivymd.uix.scrollview import MDScrollView
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 NOTIFICATION_ICONS = {
@@ -89,19 +90,58 @@ class NotificationsScreen(Screen):
         self.add_widget(self.root)
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.load_notifications())
 
+    def on_leave(self):
+        if self._notifications:
+            cache_service.set("notifications", self._notifications)
+
     async def load_notifications(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cached = cache_service.get("notifications")
+        if cached:
+            self._notifications = cached
+            Clock.schedule_once(lambda dt: self.render_notifications())
         try:
             data = await api_client.get("/api/v1/notifications")
             self._notifications = data.get("notifications", data.get("data", []))
+            cache_service.set("notifications", self._notifications)
             Clock.schedule_once(lambda dt: self.render_notifications())
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception:
-            Clock.schedule_once(lambda dt: self.load_fallback())
+            if not cached:
+                stale = cache_service.get_stale("notifications")
+                if stale:
+                    self._notifications = stale
+                    Clock.schedule_once(lambda dt: self.render_notifications())
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self.load_fallback())
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 

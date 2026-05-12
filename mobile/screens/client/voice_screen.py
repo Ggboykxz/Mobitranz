@@ -32,7 +32,7 @@ class VoiceScreen(BaseScreen):
             theme_text_color="Custom",
             text_color="FFFFFF",
             size_hint_x=0.15,
-            on_release=lambda x: setattr(self.manager, "current", "home"),
+            on_release=lambda x: self.manager.switch("home"),
         )
         title = MDLabel(
             text="Proposition Vocale",
@@ -216,7 +216,7 @@ class VoiceScreen(BaseScreen):
         def on_success(result):
             self.hide_loading()
             self.show_toast("Proposition envoyée avec succès!")
-            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.5)
+            Clock.schedule_once(lambda dt: self.manager.switch("home"), 1.5)
 
         def on_error(error):
             self.hide_loading()

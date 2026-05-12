@@ -11,6 +11,7 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class PaymentScreen(Screen):
@@ -153,10 +154,36 @@ class PaymentScreen(Screen):
         self.add_widget(self.root)
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        from kivymd.uix.label import MDLabel
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.load_trip_data())
+
+    def on_leave(self):
+        if self.trip_info:
+            cache_service.set(f"trip_{self.trip_id}", self.trip_info)
 
     def load_trip_data(self):
         self.trip_id = getattr(self, "trip_id", None) or getattr(self.manager, "current_trip_id", None)
@@ -165,12 +192,27 @@ class PaymentScreen(Screen):
 
     async def fetch_trip_details(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cache_key = f"trip_{self.trip_id}"
+        cached = cache_service.get(cache_key)
+        if cached:
+            self.trip_info = cached
+            Clock.schedule_once(lambda dt: self.update_trip_card(cached))
         try:
             data = await api_client.get(f"/api/v1/trips/{self.trip_id}")
             self.trip_info = data
+            cache_service.set(cache_key, data)
             Clock.schedule_once(lambda dt: self.update_trip_card(data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception:
-            MDSnackbar(text="Impossible de charger les details du trajet", snackbar_x=10, snackbar_y=10).open()
+            if not cached:
+                stale = cache_service.get_stale(cache_key)
+                if stale:
+                    self.trip_info = stale
+                    Clock.schedule_once(lambda dt: self.update_trip_card(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    MDSnackbar(text="Impossible de charger les details du trajet", snackbar_x=10, snackbar_y=10).open()
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
@@ -222,4 +264,4 @@ class PaymentScreen(Screen):
             self.pay_btn.disabled = False
 
     def go_to_active_trip(self):
-        self.manager.current = "trip_active"
+        self.manager.switch("trip_active")

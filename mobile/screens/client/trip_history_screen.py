@@ -11,6 +11,7 @@ from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.list import TwoLineListItem, ThreeLineListItem
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class TripHistoryScreen(Screen):
@@ -110,13 +111,38 @@ class TripHistoryScreen(Screen):
         self.add_widget(self.root)
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         self._page = 1
         self._trips = []
         self._has_more = True
         Clock.schedule_once(lambda dt: self.load_trips())
+
+    def on_leave(self):
+        if self._trips:
+            cache_service.set("trips", {"trips": self._trips, "filter": self._filter})
 
     def change_filter(self, filter_key):
         self._filter = filter_key
@@ -133,6 +159,11 @@ class TripHistoryScreen(Screen):
             return
         self._loading = True
         self.spinner.active = True
+        self.hide_offline_banner()
+        if self._page == 1:
+            cached = cache_service.get("trips")
+            if cached and cached.get("filter") == self._filter:
+                Clock.schedule_once(lambda dt: self.render_trips(cached.get("trips", [])))
         try:
             params = {"page": self._page, "per_page": 20}
             if self._filter != "all":
@@ -141,8 +172,15 @@ class TripHistoryScreen(Screen):
             trips = data.get("trips", data.get("data", []))
             self._has_more = len(trips) >= 20
             Clock.schedule_once(lambda dt: self.render_trips(trips))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self.show_error(str(e)))
+            if self._page == 1 and not cache_service.get("trips"):
+                stale = cache_service.get_stale("trips")
+                if stale:
+                    Clock.schedule_once(lambda dt: self.render_trips(stale.get("trips", [])))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self.show_error(str(e)))
         finally:
             self._loading = False
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))

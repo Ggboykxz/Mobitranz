@@ -185,7 +185,7 @@ class RatingScreen(BaseScreen):
         def on_success(result):
             self.hide_loading()
             self.show_toast("Note envoyée, merci!")
-            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.5)
+            Clock.schedule_once(lambda dt: self.manager.switch("home"), 1.5)
 
         def on_error(error):
             self.hide_loading()
@@ -199,4 +199,4 @@ class RatingScreen(BaseScreen):
         )
 
     def skip(self, instance):
-        self.manager.current = "home"
+        self.manager.switch("home")

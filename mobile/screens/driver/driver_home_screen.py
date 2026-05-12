@@ -12,6 +12,7 @@ from kivymd.uix.top_appbar import MDTopAppBar
 from kivymd.uix.switch import MDSwitch
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 import asyncio
 
 
@@ -122,11 +123,23 @@ class DriverHomeScreen(MDScreen):
         asyncio.ensure_future(self._fetch_stats())
 
     async def _fetch_stats(self):
+        self.hide_offline_banner()
+        cached = cache_service.get("driver_stats")
+        if cached:
+            Clock.schedule_once(lambda dt: self._update_stats(cached))
         try:
             data = await api_client.get("/api/v1/driver/stats")
+            cache_service.set("driver_stats", data)
             Clock.schedule_once(lambda dt: self._update_stats(data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self._show_error(str(e)))
+            if not cached:
+                stale = cache_service.get_stale("driver_stats")
+                if stale:
+                    Clock.schedule_once(lambda dt: self._update_stats(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self._show_error(str(e)))
 
     async def _fetch_proposals(self):
         try:
@@ -292,7 +305,7 @@ class DriverHomeScreen(MDScreen):
         trip_id = data.get("trip_id", data.get("id"))
         if trip_id:
             self.manager.get_screen("trip_active_driver").trip_id = str(trip_id)
-            self.manager.current = "trip_active_driver"
+            self.manager.switch("trip_active_driver")
 
     def _on_rejected(self):
         self._show_snackbar("Proposition refusee")
@@ -311,12 +324,33 @@ class DriverHomeScreen(MDScreen):
         MDSnackbar(text=text, y=dp(24)).open()
 
     def _go_to_profile(self):
-        self.manager.current = "profile"
+        self.manager.switch("profile")
 
     def on_leave(self):
         if self._poll_event:
             self._poll_event.cancel()
             self._poll_event = None
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         Clock.schedule_once(lambda dt: self._load_data(), 0.1)

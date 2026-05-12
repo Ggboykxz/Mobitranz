@@ -158,7 +158,7 @@ class RegisterScreen(BaseScreen):
             )
             api_client.set_token(result.get("access_token", ""))
             self.show_toast("Compte créé avec succès!")
-            Clock.schedule_once(lambda dt: setattr(self.manager, "current", "home"), 1.0)
+            Clock.schedule_once(lambda dt: self.manager.switch("home"), 1.0)
 
         def handle_error(error):
             self.hide_loading()
@@ -189,4 +189,4 @@ class RegisterScreen(BaseScreen):
         threading.Thread(target=run, daemon=True).start()
 
     def go_back(self, instance):
-        self.manager.current = "login"
+        self.manager.switch("login")

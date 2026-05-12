@@ -118,7 +118,7 @@ class LoginScreen(BaseScreen):
             api_client.set_token(result.get("access_token", ""))
             self.phone_input.text = ""
             self.password_input.text = ""
-            self.manager.current = "home"
+            self.manager.switch("home")
 
         def handle_error(error):
             self.hide_loading()
@@ -149,4 +149,4 @@ class LoginScreen(BaseScreen):
         threading.Thread(target=run, daemon=True).start()
 
     def go_to_register(self, instance):
-        self.manager.current = "register"
+        self.manager.switch("register")

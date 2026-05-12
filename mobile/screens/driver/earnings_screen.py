@@ -13,6 +13,7 @@ from kivymd.uix.top_appbar import MDTopAppBar
 from kivymd.uix.scrollview import MDScrollView
 from mobile.theme.colors import Colors
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 import asyncio
 
 
@@ -145,12 +146,16 @@ class EarningsScreen(MDScreen):
     def on_enter(self):
         Clock.schedule_once(lambda dt: self._load_data(), 0.1)
 
+    def on_leave(self):
+        pass
+
     def _refresh(self):
         self._load_data()
 
     def _load_data(self):
         self._loading = True
         self.spinner.active = True
+        self.hide_offline_banner()
         asyncio.ensure_future(self._fetch_earnings())
 
     def _switch_period(self, period):
@@ -165,15 +170,27 @@ class EarningsScreen(MDScreen):
         self._load_data()
 
     async def _fetch_earnings(self):
+        cached = cache_service.get("earnings")
+        if cached and cached.get("period") == self._period:
+            Clock.schedule_once(lambda dt: self._update_earnings(cached))
         try:
             app = MDApp.get_running_app()
             driver_id = getattr(app, "driver_id", "")
             if not driver_id:
                 driver_id = "me"
             data = await api_client.get(f"/api/v1/payments", params={"driver_id": driver_id, "period": self._period})
+            data["period"] = self._period
+            cache_service.set("earnings", data)
             Clock.schedule_once(lambda dt: self._update_earnings(data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            Clock.schedule_once(lambda dt: self._show_error(str(e)))
+            if not cached:
+                stale = cache_service.get_stale("earnings")
+                if stale:
+                    Clock.schedule_once(lambda dt: self._update_earnings(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    Clock.schedule_once(lambda dt: self._show_error(str(e)))
 
     def _update_earnings(self, data):
         self._loading = False
@@ -311,5 +328,26 @@ class EarningsScreen(MDScreen):
     def _show_snackbar(self, text):
         MDSnackbar(text=text, y=dp(24)).open()
 
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
+
     def _go_back(self):
-        self.manager.current = "driver_home"
+        self.manager.switch("driver_home")

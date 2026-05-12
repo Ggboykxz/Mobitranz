@@ -1,5 +1,5 @@
 from kivymd.app import MDApp
-from kivy.uix.screenmanager import ScreenManager, SlideTransition
+from kivy.uix.screenmanager import ScreenManager, SlideTransition, FadeTransition, WipeTransition, RiseInTransition
 from kivy.core.window import Window
 from mobile.theme.theme import MobiTranzTheme
 from mobile.services.auth_service import auth_service
@@ -26,12 +26,38 @@ from mobile.screens.client.settings_screen import SettingsScreen
 from mobile.screens.client.map_screen import MapScreen
 
 
+class MobiTranzScreenManager(ScreenManager):
+    _transitions = {
+        ("login", "register"): lambda: SlideTransition(direction="left"),
+        ("register", "login"): lambda: SlideTransition(direction="right"),
+        ("home", "voice"): lambda: RiseInTransition(),
+        ("home", "qr_scanner"): lambda: RiseInTransition(),
+        ("voice", "home"): lambda: SlideTransition(direction="right"),
+        ("payment", "trip_active"): lambda: FadeTransition(),
+        ("trip_active", "rating"): lambda: WipeTransition(),
+    }
+
+    def switch(self, screen_name):
+        key = (self.current, screen_name)
+        if key in self._transitions:
+            self.transition = self._transitions[key]()
+        else:
+            self.transition = SlideTransition(direction="left")
+        self.current = screen_name
+
+
+def switch_screen(sm, screen_name, transition=None):
+    if transition:
+        sm.transition = transition
+    sm.current = screen_name
+
+
 class MobiTranzApp(MDApp):
     def build(self):
         Window.softinput_mode = "below_target"
         MobiTranzTheme.apply()
 
-        sm = ScreenManager(transition=SlideTransition())
+        sm = MobiTranzScreenManager(transition=SlideTransition())
 
         sm.add_widget(LoginScreen(name="login"))
         sm.add_widget(RegisterScreen(name="register"))

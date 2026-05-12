@@ -187,16 +187,16 @@ class SettingsScreen(Screen):
         ).open()
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
 
     def edit_profile(self):
-        self.manager.current = "profile"
+        self.manager.switch("profile")
 
     def change_password(self):
         self._show_dialog("Changer mot de passe", "Fonctionnalite a venir")
 
     def manage_payment(self):
-        self.manager.current = "payment"
+        self.manager.switch("payment")
 
     def change_language(self):
         self._show_dialog("Langue", "Francais\nEnglish")
@@ -236,4 +236,4 @@ class SettingsScreen(Screen):
     def logout(self):
         from mobile.services.api_client import api_client
         api_client._access_token = None
-        self.manager.current = "login"
+        self.manager.switch("login")

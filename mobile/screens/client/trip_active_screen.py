@@ -10,6 +10,7 @@ from kivymd.uix.topappbar import MDTopAppBar
 from kivymd.uix.dialog import MDDialog
 from kivy.metrics import dp
 from mobile.services.api_client import api_client
+from mobile.services.cache_service import cache_service
 
 
 class TripActiveScreen(Screen):
@@ -151,7 +152,28 @@ class TripActiveScreen(Screen):
     def go_back(self):
         if self._poll_event:
             self._poll_event.cancel()
-        self.manager.current = "home"
+        self.manager.switch("home")
+
+    def show_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            return
+        self._offline_banner = MDLabel(
+            text="⚠ Mode hors-ligne - Données en cache",
+            size_hint_y=None,
+            height=dp(30),
+            md_bg_color="#FCD116",
+            theme_text_color="Custom",
+            text_color="#1A202C",
+            halign="center",
+            font_size=12,
+        )
+        self.add_widget(self._offline_banner)
+
+    def hide_offline_banner(self):
+        if hasattr(self, '_offline_banner') and self._offline_banner:
+            if self._offline_banner.parent:
+                self.remove_widget(self._offline_banner)
+            self._offline_banner = None
 
     def on_enter(self):
         self.trip_id = getattr(self, "trip_id", None) or getattr(self.manager, "current_trip_id", None)
@@ -163,14 +185,32 @@ class TripActiveScreen(Screen):
         if self._poll_event:
             self._poll_event.cancel()
             self._poll_event = None
+        if hasattr(self, '_current_trip_data'):
+            cache_service.set(f"trip_active_{self.trip_id}", self._current_trip_data)
 
     async def load_trip_data(self):
         self.spinner.active = True
+        self.hide_offline_banner()
+        cache_key = f"trip_active_{self.trip_id}"
+        cached = cache_service.get(cache_key)
+        if cached:
+            self._current_trip_data = cached
+            Clock.schedule_once(lambda dt: self.update_trip_info(cached))
         try:
             data = await api_client.get(f"/api/v1/trips/{self.trip_id}")
+            self._current_trip_data = data
+            cache_service.set(cache_key, data)
             Clock.schedule_once(lambda dt: self.update_trip_info(data))
+            Clock.schedule_once(lambda dt: self.hide_offline_banner())
         except Exception as e:
-            MDSnackbar(text=f"Erreur: {str(e)}", snackbar_x=10, snackbar_y=10).open()
+            if not cached:
+                stale = cache_service.get_stale(cache_key)
+                if stale:
+                    self._current_trip_data = stale
+                    Clock.schedule_once(lambda dt: self.update_trip_info(stale))
+                    Clock.schedule_once(lambda dt: self.show_offline_banner())
+                else:
+                    MDSnackbar(text=f"Erreur: {str(e)}", snackbar_x=10, snackbar_y=10).open()
         finally:
             Clock.schedule_once(lambda dt: setattr(self.spinner, "active", False))
 
@@ -248,4 +288,4 @@ class TripActiveScreen(Screen):
             self.spinner.active = False
 
     def go_to_rating(self):
-        self.manager.current = "rating"
+        self.manager.switch("rating")

@@ -131,7 +131,7 @@ class QRScannerScreen(Screen):
         self.add_widget(self.root)
 
     def go_back(self):
-        self.manager.current = "home"
+        self.manager.switch("home")
 
     def toggle_camera(self, instance):
         if self._camera:
@@ -182,7 +182,7 @@ class QRScannerScreen(Screen):
                     snackbar_y=10,
                 ).open()
                 self.manager.get_screen("trip_active").trip_id = trip_id
-                Clock.schedule_once(lambda dt: setattr(self.manager, "current", "trip_active"))
+                Clock.schedule_once(lambda dt: self.manager.switch("trip_active"))
             else:
                 MDSnackbar(
                     text="QR invalide ou deja utilise",
